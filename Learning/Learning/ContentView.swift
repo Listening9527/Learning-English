@@ -7,8 +7,14 @@
 
 import SwiftUI
 import Foundation
+import UIKit
 
 struct ContentView: View {
+    private enum InputField: Hashable {
+        case customWords
+        case targetWord
+    }
+
     @StateObject private var scorer = PronunciationScorer()
     @State private var useSlowMode: Bool = false
     @State private var selectedAccent: AccentOption = .american
@@ -17,6 +23,8 @@ struct ContentView: View {
     @State private var customWordsText: String = "hello, apple, banana, orange, water"
     @State private var useWrongWordsOnly: Bool = false
     @State private var showPracticeReport: Bool = false
+    @State private var dictionaryLookupItem: DictionaryLookupItem?
+    @FocusState private var focusedInput: InputField?
 
     private var currentPracticeWordIndex: Int {
         if let index = practiceWords.firstIndex(of: currentDisplayedWord) {
@@ -59,6 +67,7 @@ struct ContentView: View {
                         Text("自定义词表（逗号或换行分隔）")
                             .font(.headline)
                         TextEditor(text: $customWordsText)
+                            .focused($focusedInput, equals: .customWords)
                             .frame(minHeight: 90)
                             .padding(8)
                             .background(Color.gray.opacity(0.12))
@@ -88,8 +97,13 @@ struct ContentView: View {
 
                 Section("练习控制") {
                     TextField("输入要练习的英文单词", text: targetWord)
+                        .focused($focusedInput, equals: .targetWord)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .submitLabel(.done)
+                        .onSubmit {
+                            dismissKeyboard()
+                        }
 
                     Picker("发音口音", selection: $selectedAccent) {
                         ForEach(AccentOption.allCases) { accent in
@@ -197,6 +211,14 @@ struct ContentView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("收起键盘") {
+                        dismissKeyboard()
+                    }
+                }
+            }
             .navigationTitle("单词发音评分")
             .onAppear {
                 scorer.setAccent(selectedAccent)
@@ -214,6 +236,9 @@ struct ContentView: View {
                     scoredWordCount: scorer.scoredWordCount,
                     lowScoreWordCount: scorer.lowScoreWordCount
                 )
+            }
+            .sheet(item: $dictionaryLookupItem) { item in
+                DictionaryDefinitionView(term: item.term)
             }
         }
     }
@@ -307,6 +332,11 @@ struct ContentView: View {
         }
         .buttonStyle(.bordered)
 
+        Button("查词典释义") {
+            presentDictionaryDefinition(for: currentDisplayedWord)
+        }
+        .buttonStyle(.bordered)
+
         Button("重新录音") {
             scorer.resetRecognitionOnly()
             scorer.startRecording(for: currentDisplayedWord)
@@ -340,6 +370,44 @@ struct ContentView: View {
         } else {
             currentWordIndex = min(currentWordIndex, displayedWords.count - 1)
         }
+    }
+
+    private func presentDictionaryDefinition(for word: String) {
+        let normalized = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else {
+            scorer.statusMessage = "当前单词为空，无法查询词典释义。"
+            return
+        }
+
+        let term = normalized.split(separator: " ").first.map(String.init) ?? normalized
+
+        guard UIReferenceLibraryViewController.dictionaryHasDefinition(forTerm: term) else {
+            scorer.statusMessage = "系统词典中暂未找到“\(term)”的释义。"
+            return
+        }
+
+        dictionaryLookupItem = DictionaryLookupItem(term: term)
+    }
+
+    private func dismissKeyboard() {
+        focusedInput = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+private struct DictionaryLookupItem: Identifiable {
+    let id = UUID()
+    let term: String
+}
+
+private struct DictionaryDefinitionView: UIViewControllerRepresentable {
+    let term: String
+
+    func makeUIViewController(context: Context) -> UIReferenceLibraryViewController {
+        UIReferenceLibraryViewController(term: term)
+    }
+
+    func updateUIViewController(_ uiViewController: UIReferenceLibraryViewController, context: Context) {
     }
 }
 

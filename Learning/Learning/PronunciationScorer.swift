@@ -38,10 +38,17 @@ final class PronunciationScorer: ObservableObject {
         }
 
         currentAccent = accent
+        guard prepareForSpeechPlayback() else { return }
+        let hasExactAccentVoice = hasInstalledVoice(for: accent)
 
         let utterance = buildUtterance(for: cleaned, style: slowMode ? .slow : .normal, accent: accent)
         synthesizer.speak(utterance)
-        statusMessage = slowMode ? "正在播放\(accent.title)慢速发音：\(cleaned)" : "正在播放\(accent.title)标准发音：\(cleaned)"
+        let modeText = slowMode ? "慢速发音" : "标准发音"
+        if hasExactAccentVoice {
+            statusMessage = "正在播放\(accent.title)\(modeText)：\(cleaned)"
+        } else {
+            statusMessage = "未安装\(accent.title)语音资源，已回退到可用英语语音：\(cleaned)"
+        }
     }
 
     func speakTeachingSequence(word: String, accent: AccentOption) {
@@ -52,12 +59,18 @@ final class PronunciationScorer: ObservableObject {
         }
 
         currentAccent = accent
+        guard prepareForSpeechPlayback() else { return }
+        let hasExactAccentVoice = hasInstalledVoice(for: accent)
 
         let normal = buildUtterance(for: cleaned, style: .normal, accent: accent)
         let slow = buildUtterance(for: cleaned, style: .slow, accent: accent)
         synthesizer.speak(normal)
         synthesizer.speak(slow)
-        statusMessage = "正在教学连播：\(accent.title)标准 + 慢速（\(cleaned)）"
+        if hasExactAccentVoice {
+            statusMessage = "正在教学连播：\(accent.title)标准 + 慢速（\(cleaned)）"
+        } else {
+            statusMessage = "未安装\(accent.title)语音资源，教学连播已回退到可用英语语音（\(cleaned)）"
+        }
     }
 
     func startRecording(for targetWord: String) {
@@ -292,7 +305,7 @@ final class PronunciationScorer: ObservableObject {
 
     private func buildUtterance(for word: String, style: SpeakingStyle, accent: AccentOption) -> AVSpeechUtterance {
         let utterance = AVSpeechUtterance(string: word)
-        utterance.voice = AVSpeechSynthesisVoice(language: accent.rawValue)
+        utterance.voice = resolveInstalledVoice(for: accent)
         utterance.volume = 1.0
         utterance.pitchMultiplier = 1.0
 
@@ -308,6 +321,48 @@ final class PronunciationScorer: ObservableObject {
         }
 
         return utterance
+    }
+
+    private func hasInstalledVoice(for accent: AccentOption) -> Bool {
+        AVSpeechSynthesisVoice.speechVoices().contains {
+            $0.language.caseInsensitiveCompare(accent.rawValue) == .orderedSame
+        }
+    }
+
+    private func resolveInstalledVoice(for accent: AccentOption) -> AVSpeechSynthesisVoice? {
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+
+        if let exact = voices.first(where: {
+            $0.language.caseInsensitiveCompare(accent.rawValue) == .orderedSame
+        }) {
+            return exact
+        }
+
+        if let englishFallback = voices.first(where: { $0.language.lowercased().hasPrefix("en") }) {
+            return englishFallback
+        }
+
+        return nil
+    }
+
+    private func prepareForSpeechPlayback() -> Bool {
+        if isRecording || audioEngine.isRunning {
+            stopRecognitionPipeline()
+        }
+
+        if synthesizer.isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            return true
+        } catch {
+            statusMessage = "启动发音失败：\(error.localizedDescription)"
+            return false
+        }
     }
 
     private func persistLatestScores() {
