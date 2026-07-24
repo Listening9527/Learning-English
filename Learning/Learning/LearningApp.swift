@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct LearningApp: App {
+    init() {
+        DatabaseManager.shared.initializeDatabase()
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainPage()
         }
     }
 }

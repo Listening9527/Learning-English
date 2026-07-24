@@ -3,6 +3,7 @@ import Combine
 import Foundation
 import Speech
 
+@MainActor
 final class PronunciationScorer: ObservableObject {
     @Published var recognizedText: String = ""
     @Published var score: Int?
@@ -16,8 +17,8 @@ final class PronunciationScorer: ObservableObject {
         }
     }
 
-    private let synthesizer = AVSpeechSynthesizer()
-    private let audioEngine = AVAudioEngine()
+    private lazy var synthesizer = AVSpeechSynthesizer()
+    private lazy var audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private var currentTargetWord: String = ""

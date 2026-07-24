@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		E6A0A209D5F14B3F8A2C1001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C79E0CBF300DC8DB00B2AB85 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C79E0CC6300DC8DB00B2AB85;
+			remoteInfo = Learning;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		C79E0CC7300DC8DB00B2AB85 /* Learning.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Learning.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E6A0A201D5F14B3F8A2C1001 /* LearningTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LearningTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +27,22 @@
 			path = Learning;
 			sourceTree = "<group>";
 		};
+		E6A0A202D5F14B3F8A2C1001 /* LearningTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LearningTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C79E0CC4300DC8DB00B2AB85 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E6A0A205D5F14B3F8A2C1001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				C79E0CC9300DC8DB00B2AB85 /* Learning */,
+				E6A0A202D5F14B3F8A2C1001 /* LearningTests */,
 				C79E0CC8300DC8DB00B2AB85 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				C79E0CC7300DC8DB00B2AB85 /* Learning.app */,
+				E6A0A201D5F14B3F8A2C1001 /* LearningTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +95,29 @@
 			productReference = C79E0CC7300DC8DB00B2AB85 /* Learning.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E6A0A203D5F14B3F8A2C1001 /* LearningTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E6A0A20DD5F14B3F8A2C1001 /* Build configuration list for PBXNativeTarget "LearningTests" */;
+			buildPhases = (
+				E6A0A204D5F14B3F8A2C1001 /* Sources */,
+				E6A0A205D5F14B3F8A2C1001 /* Frameworks */,
+				E6A0A206D5F14B3F8A2C1001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E6A0A20AD5F14B3F8A2C1001 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				E6A0A202D5F14B3F8A2C1001 /* LearningTests */,
+			);
+			name = LearningTests;
+			packageProductDependencies = (
+			);
+			productName = LearningTests;
+			productReference = E6A0A201D5F14B3F8A2C1001 /* LearningTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +130,10 @@
 				TargetAttributes = {
 					C79E0CC6300DC8DB00B2AB85 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					E6A0A203D5F14B3F8A2C1001 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = C79E0CC6300DC8DB00B2AB85;
 					};
 				};
 			};
@@ -100,12 +152,20 @@
 			projectRoot = "";
 			targets = (
 				C79E0CC6300DC8DB00B2AB85 /* Learning */,
+				E6A0A203D5F14B3F8A2C1001 /* LearningTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		C79E0CC5300DC8DB00B2AB85 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E6A0A206D5F14B3F8A2C1001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +182,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E6A0A204D5F14B3F8A2C1001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E6A0A20AD5F14B3F8A2C1001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C79E0CC6300DC8DB00B2AB85 /* Learning */;
+			targetProxy = E6A0A209D5F14B3F8A2C1001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C79E0CD0300DC8DD00B2AB85 /* Debug */ = {
@@ -321,6 +396,55 @@
 			};
 			name = Release;
 		};
+		E6A0A20BD5F14B3F8A2C1001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.li.test.learning.pronunciation.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Learning.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Learning";
+			};
+			name = Debug;
+		};
+		E6A0A20CD5F14B3F8A2C1001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.li.test.learning.pronunciation.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Learning.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Learning";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -338,6 +462,15 @@
 			buildConfigurations = (
 				C79E0CD3300DC8DD00B2AB85 /* Debug */,
 				C79E0CD4300DC8DD00B2AB85 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E6A0A20DD5F14B3F8A2C1001 /* Build configuration list for PBXNativeTarget "LearningTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E6A0A20BD5F14B3F8A2C1001 /* Debug */,
+				E6A0A20CD5F14B3F8A2C1001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
