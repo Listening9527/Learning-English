@@ -11,6 +11,7 @@ import SwiftUI
 struct LearningApp: App {
     init() {
         DatabaseManager.shared.initializeDatabase()
+        KeyboardDismissManager.shared.installIfNeeded()
     }
 
     var body: some Scene {

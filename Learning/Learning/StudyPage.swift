@@ -79,19 +79,23 @@ struct LegacyStudyContent: View {
                             .background(Color.gray.opacity(0.12))
                             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 12) {
-                                actionButtons
-                            }
+                        applyWordListButton
+                    }
+                }
 
-                            VStack(alignment: .leading, spacing: 12) {
-                                actionButtons
-                            }
+                Section("词表与练习模式") {
+                    Text(useWrongWordsOnly ? "当前为错题本模式" : "当前为完整词表模式")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) {
+                            practiceModeButtons
                         }
 
-                        Text(useWrongWordsOnly ? "当前为错题本模式" : "当前为完整词表模式")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 12) {
+                            practiceModeButtons
+                        }
                     }
                 }
 
@@ -211,14 +215,6 @@ struct LegacyStudyContent: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("收起键盘") {
-                        dismissKeyboard()
-                    }
-                }
-            }
             .navigationTitle("单词发音评分")
             .onAppear {
                 scorer.setAccent(selectedAccent)
@@ -258,12 +254,15 @@ struct LegacyStudyContent: View {
     }
 
     @ViewBuilder
-    private var actionButtons: some View {
+    private var applyWordListButton: some View {
         Button("应用词表") {
             applyCustomWords()
         }
         .buttonStyle(.borderedProminent)
+    }
 
+    @ViewBuilder
+    private var practiceModeButtons: some View {
         Button("错题本练习") {
             useWrongWordsOnly.toggle()
             clampCurrentIndex()
@@ -329,19 +328,8 @@ struct LegacyStudyContent: View {
 
     @ViewBuilder
     private var replayButtons: some View {
-        Button("重听当前单词") {
-            scorer.speakTeachingSequence(word: currentDisplayedWord, accent: selectedAccent)
-        }
-        .buttonStyle(.bordered)
-
         Button("查词典释义") {
             presentDictionaryDefinition(for: currentDisplayedWord)
-        }
-        .buttonStyle(.bordered)
-
-        Button("重新录音") {
-            scorer.resetRecognitionOnly()
-            scorer.startRecording(for: currentDisplayedWord)
         }
         .buttonStyle(.bordered)
     }
@@ -383,7 +371,6 @@ struct LegacyStudyContent: View {
 
     private func dismissKeyboard() {
         focusedInput = nil
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 
