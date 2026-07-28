@@ -95,12 +95,6 @@ struct LegacyStudyContent: View {
                     }
                 }
 
-                Section("更多") {
-                    NavigationLink("练习统计与达标线设置") {
-                        PracticeStatsSettingsView(scorer: scorer)
-                    }
-                }
-
                 Section("练习控制") {
                     TextField("输入要练习的英文单词", text: targetWord)
                         .focused($focusedInput, equals: .targetWord)

@@ -4,6 +4,7 @@ struct ProfilePage: View {
     @ObservedObject var preferencesStore: PreferencesStore
     @ObservedObject var dashboardStore: DashboardStore
     @ObservedObject var wordbookStore: WordbookStore
+    @ObservedObject var scorer: PronunciationScorer
 
     var body: some View {
         NavigationStack {
@@ -36,7 +37,7 @@ struct ProfilePage: View {
                     }
 
                     NavigationLink("设置") {
-                        SettingsPage(preferencesStore: preferencesStore)
+                        SettingsPage(preferencesStore: preferencesStore, scorer: scorer)
                     }
                 }
             }

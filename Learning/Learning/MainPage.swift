@@ -34,7 +34,8 @@ struct MainPage: View {
             ProfilePage(
                 preferencesStore: preferencesStore,
                 dashboardStore: dashboardStore,
-                wordbookStore: wordbookStore
+                wordbookStore: wordbookStore,
+                scorer: scorer
             )
             .tabItem {
                 Label(Self.tabTitles[2], systemImage: "person.crop.circle")

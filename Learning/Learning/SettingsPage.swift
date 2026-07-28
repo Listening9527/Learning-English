@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsPage: View {
     @ObservedObject var preferencesStore: PreferencesStore
+    @ObservedObject var scorer: PronunciationScorer
 
     @State private var notificationsEnabled = false
     @State private var notificationHour = 20
@@ -23,6 +24,12 @@ struct SettingsPage: View {
                         Stepper("小时：\(notificationHour)", value: $notificationHour, in: 0...23)
                         Stepper("分钟：\(notificationMinute)", value: $notificationMinute, in: 0...59)
                     }
+                }
+            }
+
+            Section("更多") {
+                NavigationLink("练习统计与达标线设置") {
+                    PracticeStatsSettingsView(scorer: scorer)
                 }
             }
 
