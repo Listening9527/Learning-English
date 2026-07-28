@@ -4,6 +4,7 @@ struct HomePage: View {
     @ObservedObject var dashboardStore: DashboardStore
     @ObservedObject var wordbookStore: WordbookStore
     let scorer: PronunciationScorer
+    @State private var showResetScoresConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -36,6 +37,8 @@ struct HomePage: View {
 
                     ipaTutorialSection
 
+                    practiceQuickActionsSection
+
                     recentWordsSection
                 }
                 .padding()
@@ -51,7 +54,85 @@ struct HomePage: View {
             .task {
                 await dashboardStore.reload()
             }
+            .alert("重置错题记录", isPresented: $showResetScoresConfirm) {
+                Button("取消", role: .cancel) {
+                }
+                Button("确认重置", role: .destructive) {
+                    scorer.resetAllLatestScores()
+                }
+            } message: {
+                Text("将清空全部单词的得分与错题记录。")
+            }
         }
+    }
+
+    private var practiceQuickActionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("练习快捷操作")
+                .font(.headline)
+
+            NavigationLink {
+                StudyPage(scorer: scorer, startInWrongWordsMode: true)
+            } label: {
+                quickActionCard(
+                    title: "错题本练习",
+                    subtitle: "只练当前批次里低于达标线的单词",
+                    color: .red,
+                    icon: "exclamationmark.bubble"
+                )
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                showResetScoresConfirm = true
+            } label: {
+                quickActionCard(
+                    title: "重置错题记录",
+                    subtitle: "清空全部得分与错题状态",
+                    color: .gray,
+                    icon: "arrow.counterclockwise"
+                )
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink {
+                StudyPage(scorer: scorer, showPracticeReportOnAppear: true)
+            } label: {
+                quickActionCard(
+                    title: "今日练习报告",
+                    subtitle: "查看得分统计与达标情况",
+                    color: .green,
+                    icon: "chart.bar"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func quickActionCard(title: String, subtitle: String, color: Color, icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(color)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var ipaTutorialSection: some View {

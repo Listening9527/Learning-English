@@ -41,4 +41,27 @@ final class WordbookStore: ObservableObject {
     func markForgotten(wordID: Int64) async throws {
         try DatabaseManager.shared.markWordAsForgotten(wordID: wordID)
     }
+
+    func createWordbook(name: String, description: String?) async throws -> WordbookOption {
+        let id = try DatabaseManager.shared.createWordbook(name: name, description: description)
+        await reload()
+
+        if let option = wordbookOptions.first(where: { $0.id == id }) {
+            return option
+        }
+
+        return WordbookOption(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    func fetchStudyWords(wordbookID: Int64, limit: Int = 10, offset: Int = 0) async throws -> [String] {
+        try DatabaseManager.shared.fetchStudyWords(wordbookID: wordbookID, limit: limit, offset: offset)
+    }
+
+    func fetchWordSummaries(words: [String]) async throws -> [RecentWordSummary] {
+        try DatabaseManager.shared.fetchWordSummaries(words: words)
+    }
+
+    func fetchRecentWordSummaries(limit: Int) async throws -> [RecentWordSummary] {
+        try DatabaseManager.shared.fetchRecentWordSummaries(limit: limit)
+    }
 }

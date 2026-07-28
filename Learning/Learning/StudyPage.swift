@@ -4,46 +4,78 @@ import UIKit
 
 struct StudyPage: View {
     let scorer: PronunciationScorer
+    private let startInWrongWordsMode: Bool
+    private let showPracticeReportOnAppear: Bool
+
+    init(
+        scorer: PronunciationScorer,
+        startInWrongWordsMode: Bool = false,
+        showPracticeReportOnAppear: Bool = false
+    ) {
+        self.scorer = scorer
+        self.startInWrongWordsMode = startInWrongWordsMode
+        self.showPracticeReportOnAppear = showPracticeReportOnAppear
+    }
 
     static func makeForTesting(scorer: PronunciationScorer) -> StudyPage {
         StudyPage(scorer: scorer)
     }
 
     var body: some View {
-        LegacyStudyContent(scorer: scorer)
+        LegacyStudyContent(
+            scorer: scorer,
+            startInWrongWordsMode: startInWrongWordsMode,
+            showPracticeReportOnAppear: showPracticeReportOnAppear
+        )
     }
 }
 
 struct LegacyStudyContent: View {
     private enum InputField: Hashable {
-        case customWords
-        case targetWord
+        case spellingAnswer
     }
 
     @ObservedObject var scorer: PronunciationScorer
+    private let startInWrongWordsMode: Bool
+    @StateObject private var wordbookStore = WordbookStore()
+    @StateObject private var studySessionStore = StudySessionStore()
     @State private var useSlowMode: Bool = false
     @State private var selectedAccent: AccentOption = .american
     @State private var practiceWords: [String] = ["hello", "apple", "banana", "orange", "water"]
     @State private var currentWordIndex: Int = 0
-    @State private var customWordsText: String = "hello, apple, banana, orange, water"
     @State private var useWrongWordsOnly: Bool = false
     @State private var showPracticeReport: Bool = false
     @State private var showDictionaryLookup: Bool = false
+    @State private var showCreateWordbookSheet: Bool = false
     @State private var dictionaryInitialTerm: String = ""
+    @State private var selectedWordbookID: Int64?
+    @State private var newWordbookName: String = ""
+    @State private var newWordbookDescription: String = ""
+    @State private var wordDetailsByWord: [String: RecentWordSummary] = [:]
+    @State private var supplementalSummaries: [RecentWordSummary] = []
+    @State private var definitionOptions: [String] = []
+    @State private var selectedDefinition: String?
+    @State private var definitionSelectionIsCorrect: Bool?
+    @State private var spellingAnswer: String = ""
+    @State private var spellingFeedback: String?
+    @State private var hasUnlockedPronunciation: Bool = false
+    @State private var hasUnlockedSpelling: Bool = false
+    @State private var errorMessage: String?
+    @State private var currentBatchStartOffset: Int = 0
+    @State private var hasMarkedCurrentBatchCompleted: Bool = false
     @FocusState private var focusedInput: InputField?
 
-    private var currentPracticeWordIndex: Int {
-        if let index = practiceWords.firstIndex(of: currentDisplayedWord) {
-            return index
-        }
-        return min(currentWordIndex, max(practiceWords.count - 1, 0))
-    }
+    private let defaultStudyWordLimit = 10
 
-    private var targetWord: Binding<String> {
-        Binding(
-            get: { practiceWords[currentPracticeWordIndex] },
-            set: { practiceWords[currentPracticeWordIndex] = $0 }
-        )
+    init(
+        scorer: PronunciationScorer,
+        startInWrongWordsMode: Bool = false,
+        showPracticeReportOnAppear: Bool = false
+    ) {
+        self.scorer = scorer
+        self.startInWrongWordsMode = startInWrongWordsMode
+        _useWrongWordsOnly = State(initialValue: startInWrongWordsMode)
+        _showPracticeReport = State(initialValue: showPracticeReportOnAppear)
     }
 
     private var displayedWords: [String] {
@@ -65,49 +97,98 @@ struct LegacyStudyContent: View {
         return displayedWords[safeIndex]
     }
 
+    private var currentWordSummary: RecentWordSummary? {
+        let normalized = normalizeWord(currentDisplayedWord)
+        return wordDetailsByWord[normalized]
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("单词发音评分") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("自定义词表（逗号或换行分隔）")
-                            .font(.headline)
-                        TextEditor(text: $customWordsText)
-                            .focused($focusedInput, equals: .customWords)
-                            .frame(minHeight: 90)
-                            .padding(8)
-                            .background(Color.gray.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                        applyWordListButton
-                    }
+                Section("单词本学习") {
+                    Text("默认每次从所选单词本加载 10 个单词。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("词表与练习模式") {
-                    Text(useWrongWordsOnly ? "当前为错题本模式" : "当前为完整词表模式")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    Picker("选择单词本", selection: $selectedWordbookID) {
+                        Text("请选择单词本").tag(Int64?.none)
+                        ForEach(wordbookStore.wordbookOptions) { option in
+                            Text(option.name).tag(Optional(option.id))
+                        }
+                    }
 
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) {
-                            practiceModeButtons
+                    Button("新建单词本") {
+                        showCreateWordbookSheet = true
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                Section("第 1 项：选择正确释义") {
+                    if !currentDisplayedWord.isEmpty {
+                        Text(currentDisplayedWord)
+                            .font(.headline)
+                    }
+
+                    if definitionOptions.isEmpty {
+                        Text("当前单词暂无足够释义数据，无法生成选项。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(definitionOptions, id: \.self) { option in
+                            Button {
+                                selectedDefinition = option
+                                definitionSelectionIsCorrect = option == currentWordSummary?.definition
+                                hasUnlockedPronunciation = definitionSelectionIsCorrect == true
+                                if definitionSelectionIsCorrect != true {
+                                    hasUnlockedSpelling = false
+                                    spellingAnswer = ""
+                                    spellingFeedback = nil
+                                }
+                            } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    Image(systemName: optionStateIcon(for: option))
+                                        .foregroundStyle(optionStateColor(for: option))
+                                    Text(option)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
 
-                        VStack(alignment: .leading, spacing: 12) {
-                            practiceModeButtons
+                        if let definitionSelectionIsCorrect {
+                            Text(definitionSelectionIsCorrect ? "回答正确。" : "回答错误，请重试。")
+                                .font(.footnote)
+                                .foregroundStyle(definitionSelectionIsCorrect ? .green : .red)
                         }
                     }
                 }
 
-                Section("练习控制") {
-                    TextField("输入要练习的英文单词", text: targetWord)
-                        .focused($focusedInput, equals: .targetWord)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.done)
-                        .onSubmit {
-                            dismissKeyboard()
+                Section("第 2 项：单词发音练习") {
+                    if !hasUnlockedPronunciation {
+                        Text("先完成第一项并答对后，再进行发音练习。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if !currentDisplayedWord.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(currentDisplayedWord)
+                                .font(.headline)
+                            if let phonetic = currentWordSummary?.phonetic, !phonetic.isEmpty {
+                                Text(phonetic)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let summary = currentWordSummary, !summary.definition.isEmpty {
+                                Text(summary.definition)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                    }
 
                     Picker("发音口音", selection: $selectedAccent) {
                         ForEach(AccentOption.allCases) { accent in
@@ -115,6 +196,7 @@ struct LegacyStudyContent: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .disabled(!hasUnlockedPronunciation)
 
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 12) {
@@ -138,6 +220,7 @@ struct LegacyStudyContent: View {
                             primaryPlaybackButtons
                         }
                     }
+                    .disabled(!hasUnlockedPronunciation)
 
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 12) {
@@ -148,41 +231,22 @@ struct LegacyStudyContent: View {
                             replayButtons
                         }
                     }
+                    .disabled(!hasUnlockedPronunciation)
 
                     Toggle("慢速模式（更适合跟读）", isOn: $useSlowMode)
+                    .disabled(!hasUnlockedPronunciation)
                     Toggle("低分自动触发教学连播", isOn: $scorer.autoReplayLowScore)
+                    .disabled(!hasUnlockedPronunciation)
 
                     Button("教学连播（标准 + 慢速）") {
                         scorer.speakTeachingSequence(word: currentDisplayedWord, accent: selectedAccent)
                     }
                     .buttonStyle(.bordered)
-                }
+                    .disabled(!hasUnlockedPronunciation)
 
-                Section("结果") {
                     if let latest = scorer.latestScores[currentDisplayedWord] {
                         Text("当前单词最近一次得分：\(latest) / 100")
                             .foregroundStyle(.secondary)
-                    }
-
-                    if !scorer.latestScores.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("最近得分")
-                                .font(.headline)
-                            ForEach(displayedWords, id: \.self) { word in
-                                HStack {
-                                    Text(word)
-                                    Spacer()
-                                    if let latest = scorer.latestScores[word] {
-                                        Text("\(latest)")
-                                            .foregroundStyle(latest >= 85 ? .green : (latest >= scorer.autoReplayThreshold ? .orange : .red))
-                                    } else {
-                                        Text("-")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                .font(.footnote)
-                            }
-                        }
                     }
 
                     if !scorer.recognizedText.isEmpty {
@@ -213,16 +277,79 @@ struct LegacyStudyContent: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Section("第 3 项：拼写单词") {
+                    if !hasUnlockedSpelling {
+                        Text("先完成第二项并获得当前单词发音得分后，再进行拼写。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let summary = currentWordSummary, !summary.definition.isEmpty {
+                        Text("根据释义拼写单词：\(summary.definition)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    TextField("输入单词拼写", text: $spellingAnswer)
+                        .focused($focusedInput, equals: .spellingAnswer)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.done)
+                        .onSubmit {
+                            checkSpellingAnswer()
+                            dismissKeyboard()
+                        }
+                        .disabled(!hasUnlockedSpelling)
+
+                    Button("检查拼写") {
+                        checkSpellingAnswer()
+                        dismissKeyboard()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!hasUnlockedSpelling)
+
+                    if let spellingFeedback {
+                        Text(spellingFeedback)
+                            .font(.footnote)
+                            .foregroundStyle(isSpellingAnswerCorrect ? .green : .red)
+                    }
+                }
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("单词发音评分")
             .onAppear {
                 scorer.setAccent(selectedAccent)
                 scorer.loadPersistedScores()
-                applyCustomWords()
+                useWrongWordsOnly = startInWrongWordsMode
+                clampCurrentIndex()
+            }
+            .task {
+                await wordbookStore.reload()
+                await loadSupplementalSummaries()
+                if selectedWordbookID == nil {
+                    selectedWordbookID = wordbookStore.wordbookOptions.first?.id
+                }
+                await loadWordsFromSelectedWordbook()
+            }
+            .onChange(of: selectedWordbookID) { _ in
+                Task {
+                    await loadWordsFromSelectedWordbook()
+                }
             }
             .onChange(of: selectedAccent) { newAccent in
                 scorer.setAccent(newAccent)
+            }
+            .onChange(of: currentDisplayedWord) { _ in
+                resetExerciseStateForCurrentWord()
+
+                Task {
+                    await refreshWordSummaries(for: [currentDisplayedWord], replaceAll: false)
+                    refreshDefinitionOptions()
+                }
+            }
+            .onChange(of: scorer.latestScores[currentDisplayedWord]) { latest in
+                hasUnlockedSpelling = hasUnlockedPronunciation && latest != nil
             }
             .sheet(isPresented: $showPracticeReport) {
                 PracticeReportView(
@@ -238,7 +365,58 @@ struct LegacyStudyContent: View {
                     DictionaryLookupPage(initialTerm: dictionaryInitialTerm)
                 }
             }
+            .sheet(isPresented: $showCreateWordbookSheet) {
+                createWordbookSheet
+            }
+            .alert("操作失败", isPresented: errorAlertBinding) {
+                Button("知道了", role: .cancel) {
+                    errorMessage = nil
+                }
+            } message: {
+                Text(errorMessage ?? "")
+            }
         }
+    }
+
+    private var createWordbookSheet: some View {
+        NavigationStack {
+            Form {
+                Section("新建单词本") {
+                    TextField("名称", text: $newWordbookName)
+                    TextField("描述（可选）", text: $newWordbookDescription, axis: .vertical)
+                }
+            }
+            .navigationTitle("创建单词本")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("取消") {
+                        showCreateWordbookSheet = false
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("保存") {
+                        Task {
+                            await createWordbook()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var errorAlertBinding: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { show in
+                if !show {
+                    errorMessage = nil
+                }
+            }
+        )
+    }
+
+    private var isSpellingAnswerCorrect: Bool {
+        normalizeWord(spellingAnswer) == normalizeWord(currentDisplayedWord)
     }
 
     private func scoreColor(_ score: Int) -> Color {
@@ -253,34 +431,16 @@ struct LegacyStudyContent: View {
         return "与目标发音差异较大，建议放慢语速并重听标准发音。"
     }
 
-    @ViewBuilder
-    private var applyWordListButton: some View {
-        Button("应用词表") {
-            applyCustomWords()
-        }
-        .buttonStyle(.borderedProminent)
+    private func optionStateIcon(for option: String) -> String {
+        guard let selectedDefinition else { return "circle" }
+        guard selectedDefinition == option else { return "circle" }
+        return definitionSelectionIsCorrect == true ? "checkmark.circle.fill" : "xmark.circle.fill"
     }
 
-    @ViewBuilder
-    private var practiceModeButtons: some View {
-        Button("错题本练习") {
-            useWrongWordsOnly.toggle()
-            clampCurrentIndex()
-            scorer.resetForNewWord()
-        }
-        .buttonStyle(.bordered)
-
-        Button("重置错题记录") {
-            scorer.resetLatestScores(for: practiceWords)
-            useWrongWordsOnly = false
-            clampCurrentIndex()
-        }
-        .buttonStyle(.bordered)
-
-        Button("今日练习报告") {
-            showPracticeReport = true
-        }
-        .buttonStyle(.bordered)
+    private func optionStateColor(for option: String) -> Color {
+        guard let selectedDefinition else { return .secondary }
+        guard selectedDefinition == option else { return .secondary }
+        return definitionSelectionIsCorrect == true ? .green : .red
     }
 
     @ViewBuilder
@@ -334,24 +494,163 @@ struct LegacyStudyContent: View {
         .buttonStyle(.bordered)
     }
 
-    private func applyCustomWords() {
-        let parsedWords = customWordsText
-            .lowercased()
-            .replacingOccurrences(of: "\n", with: ",")
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+    private func createWordbook() async {
+        do {
+            let option = try await wordbookStore.createWordbook(
+                name: newWordbookName,
+                description: newWordbookDescription
+            )
 
-        let uniqueWords = Array(NSOrderedSet(array: parsedWords)) as? [String] ?? parsedWords
-        if uniqueWords.isEmpty {
-            practiceWords = ["hello"]
-            customWordsText = "hello"
-        } else {
-            practiceWords = uniqueWords
+            selectedWordbookID = option.id
+            newWordbookName = ""
+            newWordbookDescription = ""
+            showCreateWordbookSheet = false
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func loadSupplementalSummaries() async {
+        do {
+            supplementalSummaries = try await wordbookStore.fetchRecentWordSummaries(limit: 20)
+            refreshDefinitionOptions()
+        } catch {
+            supplementalSummaries = []
+        }
+    }
+
+    private func loadWordsFromSelectedWordbook() async {
+        guard let wordbookID = selectedWordbookID else {
+            return
         }
 
-        clampCurrentIndex()
-        scorer.resetForNewWord()
+        do {
+            let nextOffset = studySessionStore.nextBatchOffset(for: wordbookID)
+            var words = try await wordbookStore.fetchStudyWords(
+                wordbookID: wordbookID,
+                limit: defaultStudyWordLimit,
+                offset: nextOffset
+            )
+
+            if words.isEmpty, nextOffset > 0 {
+                studySessionStore.resetBatchProgress(for: wordbookID)
+                words = try await wordbookStore.fetchStudyWords(
+                    wordbookID: wordbookID,
+                    limit: defaultStudyWordLimit,
+                    offset: 0
+                )
+                currentBatchStartOffset = 0
+            } else {
+                currentBatchStartOffset = nextOffset
+            }
+
+            guard !words.isEmpty else {
+                errorMessage = "该单词本暂无单词，请先在单词详情中加入生词本。"
+                return
+            }
+
+            practiceWords = words
+            currentWordIndex = 0
+            hasMarkedCurrentBatchCompleted = false
+            scorer.resetForNewWord()
+            dismissKeyboard()
+            await refreshWordSummaries(for: words, replaceAll: true)
+            resetExerciseStateForCurrentWord()
+            refreshDefinitionOptions()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func refreshWordSummaries(for words: [String], replaceAll: Bool) async {
+        let normalizedWords = words.map(normalizeWord).filter { !$0.isEmpty }
+        guard !normalizedWords.isEmpty else {
+            if replaceAll {
+                wordDetailsByWord = [:]
+            }
+            return
+        }
+
+        do {
+            let summaries = try await wordbookStore.fetchWordSummaries(words: normalizedWords)
+            var merged = replaceAll ? [String: RecentWordSummary]() : wordDetailsByWord
+
+            if replaceAll {
+                for word in normalizedWords {
+                    merged.removeValue(forKey: word)
+                }
+            }
+
+            for summary in summaries {
+                let key = normalizeWord(summary.word)
+                if !key.isEmpty {
+                    merged[key] = summary
+                }
+            }
+
+            wordDetailsByWord = merged
+            refreshDefinitionOptions()
+        } catch {
+            if replaceAll {
+                wordDetailsByWord = [:]
+                definitionOptions = []
+            }
+        }
+    }
+
+    private func refreshDefinitionOptions() {
+        guard let summary = currentWordSummary, !summary.definition.isEmpty else {
+            definitionOptions = []
+            return
+        }
+
+        let distractors = Array(
+            Set(
+                (Array(wordDetailsByWord.values) + supplementalSummaries)
+                    .filter { normalizeWord($0.word) != normalizeWord(summary.word) }
+                    .map(\.definition)
+                    .filter { !$0.isEmpty && $0 != summary.definition }
+            )
+        )
+
+        var options = Array(distractors.shuffled().prefix(3))
+        options.append(summary.definition)
+
+        let fallbackOptions = [
+            "一种动作或状态的描述",
+            "表示时间或顺序变化的含义",
+            "与场景或事物相关的解释"
+        ]
+
+        for fallback in fallbackOptions where options.count < 4 {
+            if fallback != summary.definition && !options.contains(fallback) {
+                options.append(fallback)
+            }
+        }
+
+        definitionOptions = Array(options.prefix(4)).shuffled()
+    }
+
+    private func resetExerciseStateForCurrentWord() {
+        selectedDefinition = nil
+        definitionSelectionIsCorrect = nil
+        spellingAnswer = ""
+        spellingFeedback = nil
+        hasUnlockedPronunciation = false
+        hasUnlockedSpelling = false
+    }
+
+    private func checkSpellingAnswer() {
+        if isSpellingAnswerCorrect {
+            spellingFeedback = "拼写正确。"
+            markCurrentBatchCompletedIfNeeded()
+        } else {
+            spellingFeedback = "拼写不正确，正确答案是 \(currentDisplayedWord)。"
+        }
+    }
+
+    private func normalizeWord(_ word: String) -> String {
+        word.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     private func clampCurrentIndex() {
@@ -360,6 +659,23 @@ struct LegacyStudyContent: View {
         } else {
             currentWordIndex = min(currentWordIndex, displayedWords.count - 1)
         }
+    }
+
+    private func markCurrentBatchCompletedIfNeeded() {
+        guard !useWrongWordsOnly,
+              !hasMarkedCurrentBatchCompleted,
+              !practiceWords.isEmpty,
+              currentWordIndex == practiceWords.count - 1,
+              let wordbookID = selectedWordbookID else {
+            return
+        }
+
+        studySessionStore.markBatchCompleted(
+            wordbookID: wordbookID,
+            batchStart: currentBatchStartOffset,
+            batchSize: practiceWords.count
+        )
+        hasMarkedCurrentBatchCompleted = true
     }
 
     private func presentDictionaryDefinition(for word: String) {

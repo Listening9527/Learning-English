@@ -136,6 +136,12 @@ final class PronunciationScorer: ObservableObject {
         statusMessage = "已重置当前词表的错题与得分记录。"
     }
 
+    func resetAllLatestScores() {
+        latestScores = [:]
+        persistLatestScores()
+        statusMessage = "已重置全部错题与得分记录。"
+    }
+
     var scoredWordCount: Int {
         latestScores.count
     }

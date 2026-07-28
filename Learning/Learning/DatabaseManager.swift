@@ -1030,6 +1030,148 @@ extension DatabaseManager {
         return membership
     }
 
+    func createWordbook(name: String, description: String?) throws -> Int64 {
+        initializeDatabase()
+
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            throw databaseError(message: "Wordbook name is required")
+        }
+
+        let sql =
+            """
+            INSERT INTO wordbooks (name, description, updated_at)
+            VALUES (?, ?, datetime('now'));
+            """
+
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        try bindText(trimmedName, to: statement, index: 1)
+
+        let trimmedDescription = description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmedDescription.isEmpty {
+            guard sqlite3_bind_null(statement, 2) == SQLITE_OK else {
+                throw databaseError(message: "Failed to bind wordbook description")
+            }
+        } else {
+            try bindText(trimmedDescription, to: statement, index: 2)
+        }
+
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw databaseError(message: "Failed to create wordbook")
+        }
+
+        guard let db else {
+            throw databaseError(message: "Database is not open")
+        }
+
+        return sqlite3_last_insert_rowid(db)
+    }
+
+    func fetchStudyWords(wordbookID: Int64, limit: Int = 10, offset: Int = 0) throws -> [String] {
+        initializeDatabase()
+
+        let cappedLimit = max(1, limit)
+        let cappedOffset = max(0, offset)
+
+        let sql =
+            """
+            SELECT w.word
+            FROM wordbook_words ww
+            JOIN words w ON w.id = ww.word_id
+            WHERE ww.wordbook_id = ?
+              AND COALESCE(w.pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
+              AND w.word <> '\(legacyBackfillPlaceholderWord)'
+                        ORDER BY ww.added_at DESC, w.id DESC
+                        LIMIT ? OFFSET ?;
+            """
+
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        guard sqlite3_bind_int64(statement, 1, wordbookID) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind wordbook id")
+        }
+        guard sqlite3_bind_int(statement, 2, Int32(cappedLimit)) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind study words limit")
+        }
+        guard sqlite3_bind_int(statement, 3, Int32(cappedOffset)) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind study words offset")
+        }
+
+        var words: [String] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let word = stringValue(from: statement, index: 0) else {
+                continue
+            }
+            let normalized = word.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !normalized.isEmpty {
+                words.append(normalized)
+            }
+        }
+
+        let result = sqlite3_errcode(db)
+        guard result == SQLITE_OK || result == SQLITE_DONE else {
+            throw databaseError(message: "Failed to fetch study words")
+        }
+
+        return Array(NSOrderedSet(array: words)) as? [String] ?? words
+    }
+
+    func fetchWordSummaries(words: [String]) throws -> [RecentWordSummary] {
+        initializeDatabase()
+
+        let normalizedWords = words
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+
+        guard !normalizedWords.isEmpty else {
+            return []
+        }
+
+        let placeholders = Array(repeating: "?", count: normalizedWords.count).joined(separator: ",")
+        let sql =
+            """
+            SELECT id, word, phonetic, pos, definition, created_at
+            FROM words
+            WHERE LOWER(word) IN (
+                \(placeholders)
+            )
+              AND COALESCE(pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
+              AND word <> '\(legacyBackfillPlaceholderWord)'
+            ORDER BY created_at DESC, id DESC;
+            """
+
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        for (index, word) in normalizedWords.enumerated() {
+            try bindText(word, to: statement, index: Int32(index + 1))
+        }
+
+        var summaries: [RecentWordSummary] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            summaries.append(
+                RecentWordSummary(
+                    id: sqlite3_column_int64(statement, 0),
+                    word: stringValue(from: statement, index: 1) ?? "",
+                    phonetic: stringValue(from: statement, index: 2),
+                    partOfSpeech: stringValue(from: statement, index: 3),
+                    definition: stringValue(from: statement, index: 4) ?? "",
+                    createdAt: stringValue(from: statement, index: 5) ?? ""
+                )
+            )
+        }
+
+        let result = sqlite3_errcode(db)
+        guard result == SQLITE_OK || result == SQLITE_DONE else {
+            throw databaseError(message: "Failed to fetch word summaries")
+        }
+
+        return summaries
+    }
+
     func markWordAsForgotten(wordID: Int64) throws {
         initializeDatabase()
 
