@@ -28,7 +28,8 @@ struct LegacyStudyContent: View {
     @State private var customWordsText: String = "hello, apple, banana, orange, water"
     @State private var useWrongWordsOnly: Bool = false
     @State private var showPracticeReport: Bool = false
-    @State private var dictionaryLookupItem: DictionaryLookupItem?
+    @State private var showDictionaryLookup: Bool = false
+    @State private var dictionaryInitialTerm: String = ""
     @FocusState private var focusedInput: InputField?
 
     private var currentPracticeWordIndex: Int {
@@ -242,8 +243,10 @@ struct LegacyStudyContent: View {
                     lowScoreWordCount: scorer.lowScoreWordCount
                 )
             }
-            .sheet(item: $dictionaryLookupItem) { item in
-                DictionaryDefinitionView(term: item.term)
+            .sheet(isPresented: $showDictionaryLookup) {
+                NavigationStack {
+                    DictionaryLookupPage(initialTerm: dictionaryInitialTerm)
+                }
             }
         }
     }
@@ -379,19 +382,9 @@ struct LegacyStudyContent: View {
 
     private func presentDictionaryDefinition(for word: String) {
         let normalized = word.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else {
-            scorer.statusMessage = "当前单词为空，无法查询词典释义。"
-            return
-        }
-
-        let term = normalized.split(separator: " ").first.map(String.init) ?? normalized
-
-        guard UIReferenceLibraryViewController.dictionaryHasDefinition(forTerm: term) else {
-            scorer.statusMessage = "系统词典中暂未找到“\(term)”的释义。"
-            return
-        }
-
-        dictionaryLookupItem = DictionaryLookupItem(term: term)
+        let term = normalized.split(separator: " ").first.map(String.init) ?? ""
+        dictionaryInitialTerm = term
+        showDictionaryLookup = true
     }
 
     private func dismissKeyboard() {
@@ -400,9 +393,82 @@ struct LegacyStudyContent: View {
     }
 }
 
-private struct DictionaryLookupItem: Identifiable {
-    let id = UUID()
-    let term: String
+private struct DictionaryLookupPage: View {
+    @State private var query: String
+    @State private var activeTerm: String?
+    @State private var infoMessage: String = ""
+
+    init(initialTerm: String) {
+        _query = State(initialValue: initialTerm)
+        _activeTerm = State(initialValue: nil)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("输入英文单词", text: $query)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .textFieldStyle(.roundedBorder)
+
+            HStack(spacing: 10) {
+                Button("查询") {
+                    runLookup()
+                }
+                .buttonStyle(.borderedProminent)
+
+                if let activeTerm {
+                    Button("清空结果") {
+                        self.activeTerm = nil
+                        infoMessage = ""
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            if !infoMessage.isEmpty {
+                Text(infoMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let activeTerm {
+                DictionaryDefinitionView(term: activeTerm)
+                    .id(activeTerm)
+            } else {
+                ContentUnavailableView("暂无释义", systemImage: "book.closed", description: Text("输入单词后点击查询"))
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .navigationTitle("查词典释义")
+        .onAppear {
+            if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                runLookup()
+            }
+        }
+    }
+
+    private func runLookup() {
+        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else {
+            infoMessage = "请输入要查询的英文单词。"
+            activeTerm = nil
+            return
+        }
+
+        let term = normalized.split(separator: " ").first.map(String.init) ?? normalized
+        query = term
+
+        guard UIReferenceLibraryViewController.dictionaryHasDefinition(forTerm: term) else {
+            infoMessage = "系统词典中暂未找到“\(term)”的释义。"
+            activeTerm = nil
+            return
+        }
+
+        infoMessage = ""
+        activeTerm = term
+    }
 }
 
 private struct DictionaryDefinitionView: UIViewControllerRepresentable {
