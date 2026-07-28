@@ -325,7 +325,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4JMPHJWURJ;
+				DEVELOPMENT_TEAM = 7Q633Z98R6;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -334,7 +334,7 @@
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于录制你的发音并进行打分。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "用于将你的发音转换为文本并计算准确度。";
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -374,7 +374,7 @@
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于录制你的发音并进行打分。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "用于将你的发音转换为文本并计算准确度。";
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

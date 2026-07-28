@@ -395,12 +395,11 @@ struct LegacyStudyContent: View {
 
 private struct DictionaryLookupPage: View {
     @State private var query: String
-    @State private var activeTerm: String?
+    @State private var dictionaryLookupItem: DictionaryLookupItem?
     @State private var infoMessage: String = ""
 
     init(initialTerm: String) {
         _query = State(initialValue: initialTerm)
-        _activeTerm = State(initialValue: nil)
     }
 
     var body: some View {
@@ -409,6 +408,10 @@ private struct DictionaryLookupPage: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
+                .submitLabel(.search)
+                .onSubmit {
+                    runLookup()
+                }
 
             HStack(spacing: 10) {
                 Button("查询") {
@@ -416,9 +419,9 @@ private struct DictionaryLookupPage: View {
                 }
                 .buttonStyle(.borderedProminent)
 
-                if let activeTerm {
+                if dictionaryLookupItem != nil {
                     Button("清空结果") {
-                        self.activeTerm = nil
+                        self.dictionaryLookupItem = nil
                         infoMessage = ""
                     }
                     .buttonStyle(.bordered)
@@ -431,11 +434,13 @@ private struct DictionaryLookupPage: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let activeTerm {
-                DictionaryDefinitionView(term: activeTerm)
-                    .id(activeTerm)
+            if #available(iOS 17.0, *) {
+                ContentUnavailableView("查询系统词典", systemImage: "book.closed", description: Text("输入英文单词后点击“查询”"))
             } else {
-                ContentUnavailableView("暂无释义", systemImage: "book.closed", description: Text("输入单词后点击查询"))
+                Text("输入英文单词后点击“查询”")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Spacer(minLength: 0)
@@ -447,13 +452,16 @@ private struct DictionaryLookupPage: View {
                 runLookup()
             }
         }
+        .sheet(item: $dictionaryLookupItem) { item in
+            DictionaryDefinitionView(term: item.term)
+        }
     }
 
     private func runLookup() {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else {
             infoMessage = "请输入要查询的英文单词。"
-            activeTerm = nil
+            dictionaryLookupItem = nil
             return
         }
 
@@ -462,13 +470,18 @@ private struct DictionaryLookupPage: View {
 
         guard UIReferenceLibraryViewController.dictionaryHasDefinition(forTerm: term) else {
             infoMessage = "系统词典中暂未找到“\(term)”的释义。"
-            activeTerm = nil
+            dictionaryLookupItem = nil
             return
         }
 
         infoMessage = ""
-        activeTerm = term
+        dictionaryLookupItem = DictionaryLookupItem(term: term)
     }
+}
+
+private struct DictionaryLookupItem: Identifiable {
+    let id = UUID()
+    let term: String
 }
 
 private struct DictionaryDefinitionView: UIViewControllerRepresentable {
