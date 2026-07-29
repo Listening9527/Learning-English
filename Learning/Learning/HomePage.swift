@@ -1,9 +1,19 @@
 import SwiftUI
 
 struct HomePage: View {
+    enum QuickActionDestination {
+        case practiceReport
+        case grammarHub
+    }
+
+    static let reportQuickActionDestination: QuickActionDestination = .practiceReport
+    static let grammarEntryDestination: QuickActionDestination = .grammarHub
+
     @ObservedObject var dashboardStore: DashboardStore
     @ObservedObject var wordbookStore: WordbookStore
     let scorer: PronunciationScorer
+    @StateObject private var grammarProgressStore = GrammarProgressStore()
+    @StateObject private var grammarReviewStore = GrammarReviewStore()
     @State private var showResetScoresConfirm = false
 
     var body: some View {
@@ -96,7 +106,7 @@ struct HomePage: View {
             .buttonStyle(.plain)
 
             NavigationLink {
-                StudyPage(scorer: scorer, showPracticeReportOnAppear: true)
+                reportQuickActionDestinationView()
             } label: {
                 quickActionCard(
                     title: "今日练习报告",
@@ -106,6 +116,48 @@ struct HomePage: View {
                 )
             }
             .buttonStyle(.plain)
+
+            NavigationLink {
+                grammarQuickActionDestinationView()
+            } label: {
+                quickActionCard(
+                    title: "语法学习",
+                    subtitle: "按专题系统学习英语语法",
+                    color: .blue,
+                    icon: "text.book.closed"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func reportQuickActionDestinationView() -> some View {
+        switch Self.reportQuickActionDestination {
+        case .practiceReport:
+            PracticeReportView(
+                latestScores: scorer.latestScores,
+                threshold: scorer.autoReplayThreshold,
+                averageScoreText: scorer.averageScoreText,
+                scoredWordCount: scorer.scoredWordCount,
+                lowScoreWordCount: scorer.lowScoreWordCount
+            )
+        case .grammarHub:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private func grammarQuickActionDestinationView() -> some View {
+        switch Self.grammarEntryDestination {
+        case .grammarHub:
+            GrammarHubPage(
+                topics: GrammarContentLoader.loadTopics(),
+                progressStore: grammarProgressStore,
+                reviewStore: grammarReviewStore
+            )
+        case .practiceReport:
+            EmptyView()
         }
     }
 
