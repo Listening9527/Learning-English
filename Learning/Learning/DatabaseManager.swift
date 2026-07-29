@@ -19,12 +19,15 @@ private let selectionCalendarCurrent: Calendar = {
 final class DatabaseManager {
     static let shared = DatabaseManager()
 
+    private let sm2SchemaVersion = 2
     private var db: OpaquePointer?
     private let fileName = "learning.sqlite3"
 
     private init() {}
 
     func initializeDatabase() {
+        let isFirstInstallLaunch = !databaseFileExists()
+
         guard openDatabase() else {
             print("[DB] Failed to open database")
             return
@@ -32,13 +35,25 @@ final class DatabaseManager {
 
         execute("PRAGMA foreign_keys = ON;")
 
-        for statement in createTableStatements {
-            execute(statement)
+        if isFirstInstallLaunch {
+            createBaseSchema()
+            setUserVersion(sm2SchemaVersion)
+            return
         }
+
+        // Existing installs still run idempotent create + migration to keep schema healthy.
+        createBaseSchema()
 
         migrateUserWordProgressSchemaIfNeeded()
         migrateWordsSchemaIfNeeded()
         migrateUserSettingsSchemaIfNeeded()
+    }
+
+    private func createBaseSchema() {
+
+        for statement in createTableStatements {
+            execute(statement)
+        }
 
         for statement in createIndexStatements {
             execute(statement)
@@ -46,6 +61,15 @@ final class DatabaseManager {
 
         for statement in createTriggerStatements {
             execute(statement)
+        }
+    }
+
+    private func databaseFileExists() -> Bool {
+        do {
+            let url = try databaseURL()
+            return FileManager.default.fileExists(atPath: url.path)
+        } catch {
+            return false
         }
     }
 
@@ -146,118 +170,71 @@ final class DatabaseManager {
 
     private func migrateUserWordProgressSchemaIfNeeded() {
         let columns = tableColumns("user_word_progress")
-        guard !columns.isEmpty else {
-            return
+        let currentVersion = fetchUserVersion()
+        let needsRebuild = isLegacyUserWordProgressSchema(columns)
+
+        if needsRebuild {
+            rebuildUserWordProgressTable()
         }
 
-        let statusType = columns.first(where: { $0.name == "status" })?.type ?? ""
-        if statusType.contains("TEXT") {
-            migrateUserWordProgressStatusTextToInt(columns: columns)
+        if currentVersion < sm2SchemaVersion || needsRebuild {
+            setUserVersion(sm2SchemaVersion)
         }
-
-        addColumnIfMissing(
-            tableName: "user_word_progress",
-            columnName: "easiness_factor",
-            definition: "REAL NOT NULL DEFAULT 2.50"
-        )
-        addColumnIfMissing(
-            tableName: "user_word_progress",
-            columnName: "correct_streak",
-            definition: "INTEGER NOT NULL DEFAULT 0"
-        )
-        addColumnIfMissing(
-            tableName: "user_word_progress",
-            columnName: "review_count",
-            definition: "INTEGER NOT NULL DEFAULT 0"
-        )
-        addColumnIfMissing(
-            tableName: "user_word_progress",
-            columnName: "last_interval_days",
-            definition: "INTEGER NOT NULL DEFAULT 0"
-        )
-        addColumnIfMissing(
-            tableName: "user_word_progress",
-            columnName: "source",
-            definition: "TEXT NOT NULL DEFAULT 'new' CHECK (source IN ('new', 'review', 'simple'))"
-        )
     }
 
-    private func migrateUserWordProgressStatusTextToInt(columns: [ColumnInfo]) {
-        let hasColumn: (String) -> Bool = { name in
-            columns.contains { $0.name == name }
+    private func isLegacyUserWordProgressSchema(_ columns: [ColumnInfo]) -> Bool {
+        guard !columns.isEmpty else {
+            return false
         }
 
-        let nextReviewExpr = hasColumn("next_review_at") ? "next_review_at" : "NULL"
-        let masteryExpr = hasColumn("mastery_level") ? "mastery_level" : "0"
-        let updatedAtExpr = hasColumn("updated_at") ? "updated_at" : "datetime('now')"
+        let names = Set(columns.map(\.name))
+        let required: Set<String> = [
+            "id",
+            "user_id",
+            "word_id",
+            "status",
+            "source",
+            "easiness_factor",
+            "correct_streak",
+            "review_count",
+            "next_review_at",
+            "last_interval_days",
+            "updated_at"
+        ]
 
-        execute("BEGIN TRANSACTION;")
-        execute(
-            """
-            CREATE TABLE IF NOT EXISTS user_word_progress_new (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                word_id INTEGER NOT NULL,
-                status INTEGER NOT NULL DEFAULT 0 CHECK (status IN (0, 1, 2)),
-                source TEXT NOT NULL DEFAULT 'new' CHECK (source IN ('new', 'review', 'simple')),
-                easiness_factor REAL NOT NULL DEFAULT 2.50,
-                correct_streak INTEGER NOT NULL DEFAULT 0,
-                review_count INTEGER NOT NULL DEFAULT 0,
-                mastery_level INTEGER NOT NULL DEFAULT 0,
-                last_score INTEGER,
-                last_practiced_at TEXT,
-                next_review_at TEXT,
-                last_interval_days INTEGER NOT NULL DEFAULT 0,
-                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-                UNIQUE (user_id, word_id),
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
-            );
-            """
-        )
-        execute(
-            """
-            INSERT INTO user_word_progress_new (
-                id,
-                user_id,
-                word_id,
-                status,
-                source,
-                easiness_factor,
-                correct_streak,
-                review_count,
-                mastery_level,
-                last_score,
-                last_practiced_at,
-                next_review_at,
-                last_interval_days,
-                updated_at
-            )
-            SELECT
-                id,
-                user_id,
-                word_id,
-                CASE
-                    WHEN LOWER(status) IN ('mastered', 'done') THEN 2
-                    WHEN LOWER(status) IN ('learning', 'reviewing', 'in_progress') THEN 1
-                    ELSE 0
-                END AS status,
-                'new' AS source,
-                2.50 AS easiness_factor,
-                0 AS correct_streak,
-                0 AS review_count,
-                \(masteryExpr) AS mastery_level,
-                last_score,
-                last_practiced_at,
-                \(nextReviewExpr) AS next_review_at,
-                0 AS last_interval_days,
-                \(updatedAtExpr) AS updated_at
-            FROM user_word_progress;
-            """
-        )
-        execute("DROP TABLE user_word_progress;")
-        execute("ALTER TABLE user_word_progress_new RENAME TO user_word_progress;")
-        execute("COMMIT;")
+        let hasLegacyFields = names.contains("mastery_level") || names.contains("last_score") || names.contains("last_practiced_at")
+        let missingRequired = !required.isSubset(of: names)
+        let statusType = columns.first(where: { $0.name == "status" })?.type ?? ""
+        let sourceType = columns.first(where: { $0.name == "source" })?.type ?? ""
+
+        return hasLegacyFields || missingRequired || statusType.contains("TEXT") || sourceType.isEmpty
+    }
+
+    private func rebuildUserWordProgressTable() {
+        execute("DROP TABLE IF EXISTS user_word_progress;")
+        execute(userWordProgressCreateStatement)
+    }
+
+    private func fetchUserVersion() -> Int {
+        guard let db else {
+            return 0
+        }
+
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "PRAGMA user_version;", -1, &statement, nil) == SQLITE_OK else {
+            return 0
+        }
+        defer { sqlite3_finalize(statement) }
+
+        guard sqlite3_step(statement) == SQLITE_ROW else {
+            return 0
+        }
+
+        return Int(sqlite3_column_int(statement, 0))
+    }
+
+    private func setUserVersion(_ version: Int) {
+        execute("PRAGMA user_version = \(version);")
     }
 
     private func uniqueIndexColumns(tableName: String) -> [[String]] {
@@ -491,25 +468,7 @@ final class DatabaseManager {
             );
             """,
             """
-            CREATE TABLE IF NOT EXISTS user_word_progress (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                word_id INTEGER NOT NULL,
-                status INTEGER NOT NULL DEFAULT 0 CHECK (status IN (0, 1, 2)),
-                source TEXT NOT NULL DEFAULT 'new' CHECK (source IN ('new', 'review', 'simple')),
-                easiness_factor REAL NOT NULL DEFAULT 2.50,
-                correct_streak INTEGER NOT NULL DEFAULT 0,
-                review_count INTEGER NOT NULL DEFAULT 0,
-                mastery_level INTEGER NOT NULL DEFAULT 0,
-                last_score INTEGER,
-                last_practiced_at TEXT,
-                next_review_at TEXT,
-                last_interval_days INTEGER NOT NULL DEFAULT 0,
-                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-                UNIQUE (user_id, word_id),
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
-            );
+            \(userWordProgressCreateStatement)
             """,
             """
             CREATE TABLE IF NOT EXISTS daily_records (
@@ -575,6 +534,27 @@ final class DatabaseManager {
             END;
             """
         ]
+    }
+
+    private var userWordProgressCreateStatement: String {
+        """
+        CREATE TABLE IF NOT EXISTS user_word_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            word_id INTEGER NOT NULL,
+            status INTEGER NOT NULL DEFAULT 0 CHECK (status IN (0, 1, 2)),
+            source TEXT NOT NULL DEFAULT 'new' CHECK (source IN ('new', 'review', 'simple')),
+            easiness_factor REAL NOT NULL DEFAULT 2.50,
+            correct_streak INTEGER NOT NULL DEFAULT 0,
+            review_count INTEGER NOT NULL DEFAULT 0,
+            next_review_at TEXT,
+            last_interval_days INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE (user_id, word_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+        );
+        """
     }
 }
 
@@ -1247,6 +1227,62 @@ extension DatabaseManager {
     func resetTestingFixturesForTesting() throws {
         initializeDatabase()
         try resetTestingFixtures()
+    }
+
+    func fetchCreateTableSQLForTesting(tableName: String) throws -> String {
+        initializeDatabase()
+
+        let sql =
+            """
+            SELECT sql
+            FROM sqlite_master
+            WHERE type = 'table' AND name = ?
+            LIMIT 1;
+            """
+
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        try bindText(tableName, to: statement, index: 1)
+
+        guard sqlite3_step(statement) == SQLITE_ROW,
+              let tableSQL = stringValue(from: statement, index: 0) else {
+            throw databaseError(message: "Failed to fetch create table SQL")
+        }
+
+        return tableSQL
+    }
+
+    func fetchUserVersionForTesting() -> Int {
+        initializeDatabase()
+        return fetchUserVersion()
+    }
+
+    func installLegacyUserWordProgressSchemaForTesting() throws {
+        initializeDatabase()
+        guard isRunningTests else {
+            return
+        }
+
+        try executeThrowing("DROP TABLE IF EXISTS user_word_progress;")
+        try executeThrowing(
+            """
+            CREATE TABLE user_word_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                word_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'new',
+                mastery_level INTEGER NOT NULL DEFAULT 0,
+                last_score INTEGER,
+                last_practiced_at TEXT,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE (user_id, word_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+            );
+            """
+        )
+        try executeThrowing("PRAGMA user_version = 1;")
     }
 
     private func insertSearchHistory(query: String, source: String) throws {
