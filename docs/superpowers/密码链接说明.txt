@@ -1,0 +1,451 @@
+收集整理资料不容易，请复制以下链接，在浏览器打开并获取解压密码
+http://www.haobook.xyz/p.php?8tp=s1.14805a158b300.pg3
+
+本资料为最新整理的《图解大模型生成式AI原理与实战》中文原版PDF+英文PDF+代码+杰伊阿拉马尔，用于学习，内容丰富！
+
+
+
+
+
+
+
+相关学习资料：
+
+《从零构建大模型》中文原版PDF+英文PDF+源代码+塞巴斯蒂安
+《从零构建大模型》中文原版PDF，343页，有书签，文字可复制； 英文PDF，370页，有书签，文字可复制； 配套源代码。
+下载: https://pan.baidu.com/s/1dPjX-VaZH_KfW7XddNSKbw?pwd=djsu 
+提取码: djsu
+
+
+
+《斯图尔特微积分》第9版上册中文PDF+英文PDF
+《斯图尔特微积分》第9版上册中文PDF，767页，有书签，文字可以复制； 英文PDF，1421页，有书签，文字可复制。
+下载: https://pan.baidu.com/s/1M7q0cR8immuETJ6XxT4UyQ?pwd=46jh 
+提取码: 46jh
+
+《强化学习的数学原理》中文PDF+英文PDF+课件+赵世钰
+《强化学习的数学原理》中文PDF，294页，有书签； 英文PDF，283页，有书签，文字可复制； 配套课件。作者：赵世钰
+下载: https://pan.baidu.com/s/1xRP5o0GIkT_8rKjYz2Gq6w?pwd=eh6k 
+提取码: eh6k 
+
+《深度学习基础与概念》中文PDF+英文PDF+彩图+习题答案
+《深度学习基础与概念》中文PDF，592页，有书签，文字可复制； 英文PDF，656页，有书签，文字可复制； 配套彩图；配套习题解答。
+下载: https://pan.baidu.com/s/1pMMWYrF7B4tiGR2VGa9g-w?pwd=uieu 
+提取码: uieu
+
+《深度学习入门5生成模型》PDF+源代码+斋藤康毅
+《深度学习入门5生成模型》PDF，303页，有书签，文字可复制；配套源代码。
+下载: https://pan.baidu.com/s/1hzs8cJM1R5EsdbexBK9KpA?pwd=p3kk 
+提取码: p3kk
+
+《揭秘大模型从原理到实战》PDF+源代码
+《揭秘大模型从原理到实战》PDF，390页，有书签，文字可复制；配套源代码。
+下载: https://pan.baidu.com/s/1v-rAM7T3TTM060-5WgYzew?pwd=8ew9 
+提取码: 8ew9
+
+
+《计算机网络自顶向下方法》第8版中文原版PDF英文PDF课件习题答案
+《计算机网络自顶向下方法》第8版中文原版PDF，503页，有书签，文字可复制； 英文PDF，797页，有书签，文字可复制； 配套第8版课件；配套习题答案；配套计算机复习PPT。
+下载: https://pan.baidu.com/s/13vp2Pi7Mswwg0ViMnxeBwQ?pwd=dysx 
+提取码: dysx
+
+
+《软件工程3.0：大模型驱动的研发新范式》PDF+配套资料+朱少民
+《软件工程3.0：大模型驱动的研发新范式》PDF，252页，有书签，文字可复制；配套相关资料。
+下载: https://pan.baidu.com/s/1vxSPNubwCPKi7JGSpjkCpw?pwd=6ceh 
+提取码: 6ceh
+
+
+
+《基于大模型的RAG应用开发与优化构建企业级LLM应用》PDF+严灿平
+《基于大模型的RAG应用开发与优化构建企业级LLM应用》PDF，523页，有书签，文字可复制。
+下载: https://pan.baidu.com/s/10llAAxtGiiDTU81C8LBOSA?pwd=2shi 
+提取码: 2shi
+
+《大模型RAG实战：RAG原理、应用与系统构建》PDF+代码
+《大模型RAG实战：RAG原理、应用与系统构建》PDF，181页，有书签，文字可复制；配套源代码
+下载: https://pan.baidu.com/s/1QEgjDni9M0unxKSxY9toFg?pwd=w8jv 
+提取码: w8jv
+
+
+
+《AI系统原理与架构》PDF+ZOMI 酱
+《AI系统原理与架构》原版PDF，911页，有书签，文字可复制，作者ZOMI 酱，苏统华编写。
+下载:  https://pan.baidu.com/s/1eZe_cgjVosg0b3pohrWCdQ?pwd=v6a8 
+提取码: v6a8
+
+《PyTorch计算机视觉实战目标检测图像处理与深度学习》PDF+代码
+《PyTorch计算机视觉实战目标检测图像处理与深度学习》中文PDF，577页，有书签，文字可复制；配套源代码
+下载: https://pan.baidu.com/s/1nriOqlw513OeQnw-jsJOTw?pwd=dxfg 
+提取码: dxfg
+
+《Python深度学习基于PyTorch第2版》PDF代码PPT+吴茂贵
+《Python深度学习基于PyTorch第2版》PDF，410页，有书签，文字可复制；配套源代码和数据集，配套PPT。
+下载: https://pan.baidu.com/s/1pYt_WY0J2GocYuv8m3shHw?pwd=zw8b 
+提取码: zw8b
+
+《Python深度学习及智能车竞赛实践》PDF源代码PPT+徐国艳
+《Python深度学习及智能车竞赛实践》PDF，500页，有书签，文字可复制；配套源代码和数据集，配套PPT。
+下载: https://pan.baidu.com/s/1G9376DSFTuwxEIL0rezHCQ?pwd=hiay 
+提取码: hiay 
+
+《线性代数及其应用第6版》中文PDF+英文PDF+习题指导
+《线性代数及其应用第6版》中文PDF，641页，有书签，文字可复制；英文PDF，755页；配套习题指导
+下载: https://pan.baidu.com/s/1_qegYq--gFneahpY1DyQtA?pwd=kpj3 
+提取码: kpj3
+
+《行为科学统计第9版》中文PDF+英文PDF思考
+《行为科学统计第9版》中文PDF，438页，有书签，文字可复制；英文PDF，755页
+下载: https://pan.baidu.com/s/1NUz7MCm-K7T7RSUwyfHSGQ?pwd=8svf 
+提取码: 8svf 
+
+《机器学习实战 基于Scikit-Learn、Keras和TensorFlow》第3版中英文PDF+奥雷利安·杰龙
+《机器学习实战 基于Scikit-Learn、Keras和TensorFlow》中文PDF，639页，有书签，文字可复制；英文PDF，864页；配套源代码，奥雷利安·杰龙著
+下载: https://pan.baidu.com/s/16FhFmlE08Oia6Kr1yBY76Q?pwd=w5t5 
+提取码: w5t5
+
+《利用Python进行数据分析》第3版中英文PDF+源代码
+《利用Python进行数据分析》第3版中文PDF，512页，有书签，文字可复制；英文PDF，812页；配套源代码
+下载: https://pan.baidu.com/s/1z8RPMm8nathNxv1HOneZ_w?pwd=awa5 
+提取码: awa5
+
+
+
+《人工智能现代方法第4版上下册》中英文PDF
+《人工智能现代方法第4版》中文PDF，上下册，共计1002页，有书签，文字可复制；英文PDF，1002页；配套代码
+下载: https://pan.baidu.com/s/1eDdscEubgWSpHfj5kVoWkg?pwd=k2eq 
+提取码: k2eq
+
+
+《流畅的python第2版》中英文PDF+源代码
+《流畅的python第2版》中文PDF，1205页，有书签，文字可复制；英文PDF，1011页，有书签，文字可复制；配套源代码。
+下载: https://pan.baidu.com/s/1GGDOSxWdJhS09FWHfI0clQ?pwd=qzqp 
+提取码: qzqp
+
+
+《视觉惯性SLAM理论与源码解析》PDF+源代码
+《视觉惯性SLAM理论与源码解析》PDF，531页，有书签，文字可复制；配套源代码。
+下载: https://pan.baidu.com/s/1T9oEaKmZGB_X3cQT7JWyZQ?pwd=qta6 
+提取码: qta6
+
+
+On Java中文版基础卷PDF原版源码
+《On Java中文版 基础卷》中文原版PDF，842页，有书签，文字可复制；配套源代码。
+下载: https://pan.baidu.com/s/1W_p1PkwZfP8DRf7x9RGdwQ?pwd=ta4d 
+提取码: ta4d
+
+
+《On Java中文版进阶卷》PDF+代码+PPT
+《On Java中文版进阶卷》PDF，560页，有书签，文字可复制；配套源代码和PPT。
+下载: https://pan.baidu.com/s/1t-PHuvs56HBgDHpGNp8mGA?pwd=hhfe 
+提取码: hhfe
+
+
+《机器学习中的概率统计Python语言描述》PDF+代码
+《机器学习中的概率统计Python语言描述》PDF，272页，有书签，文字可复制；配套源代码
+下载: https://pan.baidu.com/s/1imTE9StJT5-lW8tBVcwLGg?pwd=tf7b 
+提取码: tf7b
+
+
+《pandas数据处理与分析》PDF+数据集代码习题+耿远昊
+《pandas数据处理与分析》PDF，324页，文字可复制，耿远昊编写，配套数据集、习题答案、源代码。
+下载: https://pan.baidu.com/s/130ifUztEa-qGNipgMIqfWw?pwd=mhyb 
+提取码: mhyb
+
+
+《Python深度学习第2版》中文原版PDF+英文PDF+代码+弗朗索瓦
+《Python深度学习第2版》中文原版PDF，437页，有书签，文字可复制；英文PDF，504页，有书签，文字可复制；配套源代码。
+下载: https://pan.baidu.com/s/1l3qcfm29owbcqdF4F4Uaow?pwd=r2j4 
+提取码: r2j4
+
+
+《Python编程从入门到实践第3版》中文PDF+英文PDF+练习答案代码
+《Python编程从入门到实践第3版》中文PDF，531页，有书签，文字可复制；英文PDF，514页，有书签，文字可复制；配套练习答案和源代码。
+下载: https://pan.baidu.com/s/1RAvmJmKEmz-9mIzXTjyGAw?pwd=hxxs 
+提取码: hxxs
+
+
+《视觉惯性SLAM理论与源码解析》PDF+源代码
+《视觉惯性SLAM理论与源码解析》PDF，531页，有书签，文字可复制；配套源代码。
+下载: https://pan.baidu.com/s/1T9oEaKmZGB_X3cQT7JWyZQ?pwd=qta6 
+提取码: qta6
+
+
+《图神经网络基础前沿与应用》PDF+吴凌飞
+《图神经网络基础前沿与应用》PDF，579页，文字可复制，配套彩图文件。
+下载: https://pan.baidu.com/s/1pju2lUtO0whTnb0GLlcTHg?pwd=wp9p 
+提取码: wp9p
+
+
+《MongoDB权威指南第3版》中英文PDF+源代码
+《MongoDB权威指南第3版》中文PDF，413页，有书签，文字可复制；英文PDF，514页，有书签，文字可复制；配套源代码。
+下载: https://pan.baidu.com/s/17SxRsTjbQOT-_ax9g_rV_g?pwd=t1y5 
+提取码: t1y5
+
+
+《图解人工智能》中文PDF+代码
+《图解人工智能》中文PDF，349页，有书签，文字可复制；配套源代码
+下载: https://pan.baidu.com/s/1_iVfU2ayVkteOdXHfIAYNg?pwd=iv7g 
+提取码: iv7g
+
+《Excel+Python飞速搞定数据分析与处理》中文PDF+英文PDF+源代码
+《Excel+Python飞速搞定数据分析与处理》中文PDF，282页，有书签，文字可复制；英文PDF，338页；配套源代码
+下载: https://pan.baidu.com/s/1-RGGPC-QLnLYgQz48vxk_g?pwd=m5gb 
+提取码: m5gb
+
+《Python工匠案例、技巧与工程实践 》PDF代码
+《Python工匠案例、技巧与工程实践 》PDF，561页，有书签，文字可复制；配套源代码
+下载: https://pan.baidu.com/s/18jOhIr4PYs8Vm8RNt0JSgw?pwd=5fqa 
+提取码: 5fqa
+
+
+《电工学简明教程第3版》PDF+《电工学简明教程学习辅导与习题解答第3版》PDF
+《电工学简明教程第3版》PDF，501页，有书签；《电工学简明教程第3版学习辅导与习题解答》PDF，468页，有书签。
+下载:  https://pan.baidu.com/s/11-C21w3zRf6Qi0eG_NqXgQ?pwd=xfrf 
+提取码: xfrf
+
+
+《用Python动手学机器学习》PDF+源代码+伊藤真
+《用Python动手学机器学习》PDF，430页，有书签，文字可复制，配套源代码
+下载: https://pan.baidu.com/s/17OWx9hSkNy7igYNeu_zW7w?pwd=ntcp 
+提取码: ntcp
+
+
+
+
+
+
+
+
+
+《Python编程从入门到实践》高清中英文版PDF+源代码
+下载: https://pan.baidu.com/s/14pZ3K_nEmJLbadRm3Xying
+提取码: pg3q
+《Python编程快速上手让繁琐工作自动化》高清中英文版PDF+源代码
+下载: https://pan.baidu.com/s/1zGCAXu3523eh2yC8zgUPZA
+提取码: 25ea
+《Python核心编程(第三版)》高清中文英文PDF+源代码
+下载: https://pan.baidu.com/s/1slDG6pDh85OMlnOmFLIBbw
+提取码: 4thm
+《流畅的Python》（高清官方中文版PDF英文PDF+源代码）
+下载: https://pan.baidu.com/s/1dXR9sThBLaa3XE_E9YBrPQ
+提取码: h2gu
+《Python基础教程（第3版）》（高清中文PDF英文PDF源代码）
+下载: https://pan.baidu.com/s/175ID5lJPIIWZWT8fpUmyNA
+提取码: 8v8f
+《Python学习手册(第4版)》高清中文PDF+英文PDF+源代码
+下载: https://pan.baidu.com/s/1PziDYebRmwxcV3tzg88XAw
+提取码: ruxc
+《Python高性能编程》高清中文PDF+高清英文PDF+源代码
+下载: https://pan.baidu.com/s/1zHROSnGCMd2fFLbt_liASw
+提取码: xdkx
+《Python高级编程(第2版)》中文版PDF+英文版PDF+源代码
+下载: https://pan.baidu.com/s/1R_1E55Gc_lCJ8XiAIlZF9w
+提取码: hp7b 
+《Python游戏编程快速上手(第3版)》中英文PDF+代码
+下载: https://pan.baidu.com/s/1EI1pPIxpD4zM8wcM-wbWBA
+提取码: 93bq
+《趣学Python编程》中文PDF+英文PDF+源代码
+下载: https://pan.baidu.com/s/1g8RFrxsWRlslVbHKF9llNg
+提取码: egrs
+《Python语言及其应用》高清中文PDF英文PDF源代码
+下载: https://pan.baidu.com/s/1ofSBAIqOe2LvSPgPcXlkdw
+提取码: dse3
+《教孩子学编程 Python语言版》中文PDF英文PDF源代码
+下载: https://pan.baidu.com/s/1eq6ZzwCpcRhJp-I9iPwK6Q
+提取码: 3p23
+《父与子的编程之旅【第二版】》高清中英文PDF源代码
+下载: https://pan.baidu.com/s/1AZinLCUlSaza8bj8AQARTg
+提取码: e2fj
+《零基础入门学习Python》书PDF+笔记+课后题及答案	
+下载: https://pan.baidu.com/s/15bwMywIdehFXsXyBXXC97w
+提取码: 3abv
+《Python编程入门(第3版)》中文PDF+英文PDF
+下载: https://pan.baidu.com/s/1UGPJJPQxghxRc_KbAUO1Ww
+提取码: d7y8
+《Python编程导论第2版》高清中文PDF+高清英文PDF+源代码+测试解答
+下载: https://pan.baidu.com/s/1etOAhJI4lt_29KwLSyHpZw
+提取码: yavs
+《Python网络编程第3版》中英文PDF及代码+《Python网络编程攻略》中英文PDF及代码
+下载: https://pan.baidu.com/s/1WK7Rjx2BkpQMdMhLjZoQKQ
+提取码: kuvr 
+《Python可以这样学(董付国)》PDF及代码+《Python高手之路第3版》中英PDF
+下载: https://pan.baidu.com/s/1APtI97NQX2ltbbgTcwAb7Q
+提取码: e638
+《Python编程无师自通专业程序员的养成》高清中文PDF+英文PDF+源代码 
+下载: https://pan.baidu.com/s/1c07ChsbnhGHALkyZwkGgWw
+提取码: b758
+《疯狂Python讲义》PDF+源代码+李刚
+下载: https://pan.baidu.com/s/1UmZaDXe0qmxV9L7F8czWsQ
+提取码: 4te8
+《Python程序设计(第3版)》中英文PDF及代码+《Python参考手册第4版修订版》中文PDF
+下载: https://pan.baidu.com/s/1E7jd2WC0x-i5bNv1hhdWQw
+提取码: wvn7
+《Python编程基础》PDF+源代码+实验数据+张健
+下载: https://pan.baidu.com/s/1srD2w2mI9Q3SXssIztrFPQ
+提取码: g2km
+《Python游戏编程快速上手第4版》中文PDF+英文PDF+代码
+下载: https://pan.baidu.com/s/1PDmMZboUi2-QdLsdSqKEcA
+提取码: 14vu
+《图解数据结构使用Python》PDF代码+《Python程序设计基础》PDF
+下载: https://pan.baidu.com/s/1Zd3vtk6gTEThjB6f7q1wXw
+提取码: b7sw
+《Python 快速入门第3版》PDF习题及代码
+下载: https://pan.baidu.com/s/12mGyjtvZZfEc38-SwZ2Gtw
+提取码: k59f
+《Python3标准库》PDF中文+英文PDF+源代码
+下载: https://pan.baidu.com/s/1bDRfc9mwagImZgbzT6kScQ
+提取码: 8teq
+原版《流畅的Python》中文PDF+思维导图+英文PDF+源程序
+下载: https://pan.baidu.com/s/1ZbwG4epe3ZW_PbDOo4NMPQ
+提取码: 8cfz
+《Python 3.7编程快速入门》PDF+源代码
+下载: https://pan.baidu.com/s/1S67IzUvew9YevBI3L_EJow
+提取码: jer4
+《Python学习手册第5版》中文PDF+英文PDF+源代码
+下载: https://pan.baidu.com/s/1XwchI5zTUK9F-QOalSZzyw
+提取码: 1dwf
+《Python函数式编程第2版》中文PDF+英文PDF+代码解析
+下载:  https://pan.baidu.com/s/1i2J_gIJqrbl4H5gZAj6VCQ
+提取码: zwej 
+《零基础入门学习Python(第2版)》PDF+课件+源代码
+下载: https://pan.baidu.com/s/1ZC45Yp64K2ngl3o4kAO0iA
+提取码: 9cb1
+《父与子的编程之旅第3版》中文PDF+英文PDF+源代码
+下载:  https://pan.baidu.com/s/1vhA2Ea9Nr-V74ZeFIs04_w
+提取码: 5khp
+
+《Python编程从入门到实践第2版》中文PDF+英文PDF+源代码
+下载:  https://pan.baidu.com/s/1frzlBPWMvgugQsn76C-tDA
+提取码: 1u6i
+
+
+《Python机器学习基础教程》高清中文英文PDF源代码
+下载: https://pan.baidu.com/s/1B1wVgOlkqlTmt-dSP8C2JA
+提取码: k6w9
+《机器学习实战》(高清中文英文版PDF+源代码)
+下载: https://pan.baidu.com/s/16Ji-HGhJGSeniAlq8StoCg
+提取码: gf75
+《百面机器学习算法工程师带你去面试》高清PDF版+高清epub版
+下载: https://pan.baidu.com/s/1_E1dfSqEoodn7CGhFafY4g
+提取码: u5qq
+《美团机器学习实践》高清PDF+思维导图
+下载: https://pan.baidu.com/s/1NC2aov1iszDQPEr09OyVCQ
+提取码: 841h
+《Python机器学习》高清英文版PDF+中文版PDF+源代码
+下载: https://pan.baidu.com/s/1QvdWd9hoq4lscFe15lvaPw
+提取码: n3cc
+《Python机器学习—预测分析核心算法》中英文PDF+代码
+下载: https://pan.baidu.com/s/1viZe2cnUdnOX9Js5HAvQbA
+提取码: qqm9
+《Python机器学习实践指南》高清中文英文PDF+源代码
+下载: https://pan.baidu.com/s/183L7EG0JPf0ky8B8hx1PUA
+提取码: ds6i
+《Python机器学习实例》(高清中英文PDF+源代码)
+下载: https://pan.baidu.com/s/1jUrmj187r-peemYoTC0J4A
+提取码: uuyb
+《神经网络与机器学习（第3版）》高清英文PDF+中文PDF
+下载: https://pan.baidu.com/s/1s3M9o5kV-sckvOOHcQ_HCg
+提取码: qe6r
+《实用机器学习(孙亮 著)》PDF+源代码
+下载: https://pan.baidu.com/s/1hJ7Ojz9luJNhcfcNm1TYbQ
+提取码: 2yyr
+《实用机器学习》中文PDF+英文PDF+源代码
+下载: https://pan.baidu.com/s/1y5CbtC04Qe6H9vYNDgO2pQ
+提取码: 7dtk
+《机器学习实践应用》高清PDF+源代码
+下载: https://pan.baidu.com/s/1sdvcQHO5f20E6wGX4aNl_A
+提取码: 2258
+《白话大数据与机器学习》PDF+《图解机器学习》PDF
+下载: https://pan.baidu.com/s/1tWv89Hi2z1ICX33zIeOsrA
+提取码: hd5s
+《机器学习基础教程》中文PDF+英文PDF
+下载: https://pan.baidu.com/s/1LnxmItiXnBX8dlF6G-3pEQ
+提取码: g26c
+《机器学习系统设计》高清中英文PDF+源代码
+下载: https://pan.baidu.com/s/1JeFcGV4PJg3te7MS6MRDAg
+提取码: 3n9t
+《机器学习与优化》高清中文版PDF+高清英文版PDF
+下载: https://pan.baidu.com/s/1TDeFWL0j3f2Jay5FI7sH3Q
+提取码: kyfi
+《scikit-learn机器学习常用算法原理及编程实战》PDF版+epub版+源代码
+下载: https://pan.baidu.com/s/1ZO-rrGs2qDG2zy99hF_kGA
+提取码: mee8
+《机器学习与应用》高清PDF+雷明
+下载: https://pan.baidu.com/s/1FHl5JuGd0ZYc2zNyFvGFYg
+提取码: 3mmr
+《分布式机器学习：算法、理论与实践》PDF+刘铁岩等著
+下载: https://pan.baidu.com/s/1Prw48Gx9w87dTsYnnURFFw
+提取码: wys4
+《深入浅出Python机器学习》高清PDF+代码
+下载: https://pan.baidu.com/s/1iCCcAMO4hqYI6k_Vc_4wXA
+提取码: jyn5
+西瓜书《机器学习》PDF+课件+学习笔记+习题部分解答+周志华
+下载: https://pan.baidu.com/s/1hy7iL8oO3Z0CSG36dOfZqg
+提取码: y36q
+《Spark机器学习第2版》高清中文PDF+高清英文PDF+源代码
+下载: https://pan.baidu.com/s/13xNOave5kVDPqFvZHDNqJw
+提取码: 7i43
+《模式识别与机器学习PRML》中文PDF+英文PDF+习题解答+代码+笔记
+下载: https://pan.baidu.com/s/1vniJ562spBKkMuyAVvT2mw
+提取码: abwf
+《scikit-learn机器学习常用算法原理及编程实战》原版PDF+源代码+黄永昌
+下载: https://pan.baidu.com/s/1kW_hOes7V9yubgGZg99aSg
+提取码: 2kg5
+《深度实践Spark机器学习》PDF+吴茂贵
+下载: https://pan.baidu.com/s/1erZxFaKoa2vKSun1tgQPFA
+提取码: 73t6
+《自己动手写神经网络》PDF+源代码+葛一鸣
+下载: https://pan.baidu.com/s/1w927HWOXAYuYqeQtcmSnJg
+提取码: pgmu
+《精通特征工程》中文PDF+英文PDF+源代码
+下载: https://pan.baidu.com/s/1t7UrvCdzVD4yQ2v6VZueNQ
+提取码: i49z
+《机器学习Python实践》PDF+源代码+魏贞原
+下载: https://pan.baidu.com/s/1ei3L4zeG1UJYbZYjYFJ1BA
+提取码: is7c
+《Python机器学习(第2版)》中文PDF+英文PDF+源代码+Sebastian
+下载: https://pan.baidu.com/s/1UFuTADa6KwAo8yh1Twib9A
+提取码: evfc
+《机器学习实战:基于Scikit-Learn和TensorFlow》原版中英文PDF+代码
+下载: https://pan.baidu.com/s/14G_0aeMh8qiq4TtIvpefWw
+提取码: b46k
+《白话机器学习算法》PDF中文+英文PDF+数据来源参考
+下载: https://pan.baidu.com/s/1VjbePHUMGRxJDiEAqRRJVw
+提取码: 7wgx
+《统计学习方法第2版》PDF+习题部分代码+部分课件
+下载: https://pan.baidu.com/s/1Xyo5AwCSKB9FaUxLIm69Cg
+提取码: qpf1
+《scikit-learn机器学习第2版》中文PDF+英文PDF+源代码
+下载: https://pan.baidu.com/s/1no3ZW3xXf0hSkN85YhUdVw
+提取码: x3bh
+《机器学习精讲:基础、算法及应用》中文PDF+英文PDF+源代码
+下载: https://pan.baidu.com/s/1JyWWmPnJNpdq2-_V3xg-AQ
+提取码: zyij
+唐宇迪《跟着迪哥学 Python数据分析与机器学习实战》PDF+源代码
+下载: https://pan.baidu.com/s/142sJazhH8KC0vXdwfhlfmQ
+提取码: 3me4
+《特征工程入门与实践》中文PDF+英文PDF+源代码+庄嘉盛
+下载:https://pan.baidu.com/s/1GoDA-ZKAArB5lyRakCwpbg
+提取码: ymhu
+《Python机器学习手册从数据预处理到深度学习》中文PDF+英文PDF+mobi+epub
+下载: https://pan.baidu.com/s/1pS4FiALR6xR4CNQbawxXow
+提取码: pqs5
+ 《Python+TensorFlow机器学习实战》PDF+源代码课件+李鸥
+下载:https://pan.baidu.com/s/1hpn-FzblU3wLa7_hu05sZQ
+提取码: nsdb
+《机器学习实战：基于Scikit-Learn、Keras和TensorFlow第2版》中文PDF+英文PDF+源代码
+下载:  https://pan.baidu.com/s/11qSa3bIrehR3h3gZRT2J3Q
+提取码: 794q
+《深入理解XGBoost高效机器学习算法与进阶》PDF+何龙
+下载:  https://pan.baidu.com/s/1RTL_aFBK9vBZMlLNDJovXA?pwd=3it6
+提取码: 3it6
+《从零开始机器学习的数学原理和算法实践》PDF+大威
+下载:  https://pan.baidu.com/s/1W28Xon_lfr3QwCcMPnqI8A?pwd=edw3
+提取码: edw3
+《机器学习理论导引》PDF+周志华 
+下载: https://pan.baidu.com/s/1GcT0WcWuMqJRGeZu8K8uJg
+提取码: 1g7u
+
+
+
