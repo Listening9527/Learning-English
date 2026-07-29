@@ -352,13 +352,15 @@ struct LegacyStudyContent: View {
                 hasUnlockedSpelling = hasUnlockedPronunciation && latest != nil
             }
             .sheet(isPresented: $showPracticeReport) {
-                PracticeReportView(
-                    latestScores: scorer.latestScores,
-                    threshold: scorer.autoReplayThreshold,
-                    averageScoreText: scorer.averageScoreText,
-                    scoredWordCount: scorer.scoredWordCount,
-                    lowScoreWordCount: scorer.lowScoreWordCount
-                )
+                NavigationStack {
+                    PracticeReportView(
+                        latestScores: scorer.latestScores,
+                        threshold: scorer.autoReplayThreshold,
+                        averageScoreText: scorer.averageScoreText,
+                        scoredWordCount: scorer.scoredWordCount,
+                        lowScoreWordCount: scorer.lowScoreWordCount
+                    )
+                }
             }
             .sheet(isPresented: $showDictionaryLookup) {
                 NavigationStack {
@@ -792,7 +794,7 @@ private struct DictionaryDefinitionView: UIViewControllerRepresentable {
     }
 }
 
-private struct PracticeStatsSettingsView: View {
+struct PracticeStatsSettingsView: View {
     @ObservedObject var scorer: PronunciationScorer
 
     var body: some View {

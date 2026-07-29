@@ -12,4 +12,12 @@ final class NavigationShellTests: XCTestCase {
         XCTAssertEqual(MainPage.tabTitles, ["首页", "日历", "我的"])
         XCTAssertEqual(Set(MainTab.allCases), Set([.home, .calendar, .profile]))
     }
+
+    func test_homePage_practiceReport_quick_action_targets_report_view() {
+        XCTAssertEqual(HomePage.reportQuickActionDestination, .practiceReport)
+    }
+
+    func test_homePage_grammar_entry_targets_grammarHub() {
+        XCTAssertEqual(HomePage.grammarEntryDestination, .grammarHub)
+    }
 }
