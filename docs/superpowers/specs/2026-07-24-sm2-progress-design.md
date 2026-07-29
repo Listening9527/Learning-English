@@ -1,166 +1,166 @@
-# SM-2 Progress Model Design
+# SM-2 进度模型设计
 
-## Context
+## 背景
 
-The current SQLite schema defines user_word_progress with a legacy progress model based on mastery_level, last_score, and last_practiced_at. The project will replace that model with a single spaced-repetition progress record built around SM-2 style scheduling.
+当前 SQLite schema 中的 `user_word_progress` 使用的是旧版进度模型，核心字段是 `mastery_level`、`last_score` 和 `last_practiced_at`。本项目将把它替换为单一的间隔重复进度记录，围绕 SM-2 风格的调度方式组织。
 
-This design assumes the current project is still in a development phase and may rebuild the user_word_progress table when an old schema is detected. Existing data in other tables must remain untouched.
+这个设计假设当前项目仍处于开发阶段，因此在检测到旧 schema 时，可以重建 `user_word_progress` 表；其他表中的已有数据必须保持不变。
 
-## Goals
+## 目标
 
-- Replace the old user_word_progress fields with the requested SM-2 core fields.
-- Keep the schema compatible with SQLite types and constraints.
-- Use one progress model only, rather than running legacy and SM-2 fields in parallel.
-- Support lightweight adaptive scheduling without introducing a full score-based grading system.
-- Rebuild only user_word_progress when an old schema is found.
+- 用请求中的 SM-2 核心字段替换旧版 `user_word_progress` 字段。
+- 保持 schema 与 SQLite 类型和约束兼容。
+- 只保留一种进度模型，而不是让旧字段与 SM-2 字段并存。
+- 支持轻量级自适应调度，但不引入完整的分档评分体系。
+- 仅在发现旧 schema 时重建 `user_word_progress`。
 
-## Non-Goals
+## 非目标
 
-- Migrating legacy user_word_progress records into the new format.
-- Implementing the full review service or UI flow in the same change.
-- Refactoring unrelated database tables or application layers.
+- 将旧版 `user_word_progress` 记录迁移到新格式。
+- 在同一次改动里实现完整的复习服务或 UI 流程。
+- 重构与本次任务无关的数据库表或应用层。
 
-## Schema Design
+## Schema 设计
 
-The user_word_progress table will keep its primary key, user_id, word_id, foreign keys, and unique constraint on (user_id, word_id). The progress payload will be replaced with the following fields:
+`user_word_progress` 表保留主键、`user_id`、`word_id`、外键以及 `(user_id, word_id)` 上的唯一约束。进度负载替换为以下字段：
 
-- easiness_factor: REAL NOT NULL DEFAULT 2.5
-- correct_streak: INTEGER NOT NULL DEFAULT 0
-- review_count: INTEGER NOT NULL DEFAULT 0
-- next_review_at: TEXT
-- last_interval_days: INTEGER NOT NULL DEFAULT 0
-- status: INTEGER NOT NULL DEFAULT 0
-- source: TEXT NOT NULL DEFAULT 'new'
-- updated_at: TEXT NOT NULL DEFAULT (datetime('now'))
+- `easiness_factor`: REAL NOT NULL DEFAULT 2.5
+- `correct_streak`: INTEGER NOT NULL DEFAULT 0
+- `review_count`: INTEGER NOT NULL DEFAULT 0
+- `next_review_at`: TEXT
+- `last_interval_days`: INTEGER NOT NULL DEFAULT 0
+- `status`: INTEGER NOT NULL DEFAULT 0
+- `source`: TEXT NOT NULL DEFAULT 'new'
+- `updated_at`: TEXT NOT NULL DEFAULT (datetime('now'))
 
-SQLite storage types will be REAL, INTEGER, and TEXT. The requested decimal(3,2) and tinyint types are treated as semantic requirements, not literal SQLite column types.
+SQLite 的存储类型使用 REAL、INTEGER 和 TEXT。需求中提到的 `decimal(3,2)` 和 `tinyint` 视为语义要求，而不是 SQLite 中必须逐字使用的列类型。
 
-### Status Semantics
+### 状态语义
 
-- 0 = not learned
-- 1 = learning
-- 2 = mastered
+- `0` = 未学习
+- `1` = 学习中
+- `2` = 已掌握
 
-The status column should be guarded with a CHECK constraint allowing only 0, 1, and 2.
+`status` 列应通过 `CHECK` 约束限制为仅允许 `0`、`1`、`2`。
 
-### Source Semantics
+### 来源语义
 
-- new
-- review
-- simple
+- `new`
+- `review`
+- `simple`
 
-The source column should be guarded with a CHECK constraint allowing only the values above.
+`source` 列应通过 `CHECK` 约束限制为仅允许上述值。
 
-## Review State Rules
+## 复习状态规则
 
-The table represents a single source of truth for scheduling.
+这张表是调度状态的单一事实来源。
 
-### Record Creation
+### 记录创建
 
-When a user first encounters a word, create a user_word_progress record with these initial values:
+当用户第一次遇到某个单词时，创建一条 `user_word_progress` 记录，并使用以下初始值：
 
-- easiness_factor = 2.5
-- correct_streak = 0
-- review_count = 0
-- next_review_at = NULL
-- last_interval_days = 0
-- status = 0
-- source = 'new'
+- `easiness_factor = 2.5`
+- `correct_streak = 0`
+- `review_count = 0`
+- `next_review_at = NULL`
+- `last_interval_days = 0`
+- `status = 0`
+- `source = 'new'`
 
-### First Learning and Review Writes
+### 首次学习与复习写入
 
-Each answer attempt increments review_count, including wrong answers.
+每次作答都会递增 `review_count`，包括答错的情况。
 
-Whenever a word enters a formal practice flow, source is updated to the current entry mode:
+当单词进入正式练习流程时，`source` 更新为当前入口模式：
 
-- new for first learning
-- review for scheduled review
-- simple for simple mode
+- 首次学习使用 `new`
+- 计划复习使用 `review`
+- 简单模式使用 `simple`
 
-### Correct Answer Path
+### 答对路径
 
-When the user answers correctly:
+当用户回答正确时：
 
-- review_count has already been incremented for this attempt
-- increment correct_streak by 1
-- keep or raise status to 1
-- compute the next interval in days from the current streak and easiness_factor
-- store that value in last_interval_days
-- set next_review_at to the current time plus the computed interval
-- adjust easiness_factor upward slightly
+- 本次作答的 `review_count` 已经先行递增
+- `correct_streak` 加 1
+- `status` 保持或提升为 `1`
+- 根据当前 `correct_streak` 和 `easiness_factor` 计算下一次间隔天数
+- 将该值写入 `last_interval_days`
+- 将 `next_review_at` 设为当前时间加上计算出的间隔
+- 略微上调 `easiness_factor`
 
-Once correct_streak reaches 5, status becomes 2 to mark the word as mastered.
+当 `correct_streak` 达到 `5` 时，`status` 变为 `2`，表示该词已掌握。
 
-### Wrong Answer Path
+### 答错路径
 
-When the user answers incorrectly:
+当用户回答错误时：
 
-- review_count has already been incremented for this attempt
-- reset correct_streak to 0
-- set status to 1
-- set last_interval_days to 0 or the chosen immediate-repeat interval baseline
-- move next_review_at to the same day or next day
-- adjust easiness_factor downward, but never below 1.3
+- 本次作答的 `review_count` 已经先行递增
+- 将 `correct_streak` 重置为 `0`
+- 将 `status` 设为 `1`
+- 将 `last_interval_days` 设为 `0`，或设为所选的即时重复基线间隔
+- 将 `next_review_at` 推到当天稍后或次日
+- 下调 `easiness_factor`，但不得低于 `1.3`
 
-This keeps failed reviews from inheriting an over-optimistic schedule.
+这样可以避免失败复习继承过于乐观的调度结果。
 
-### Simple Mode
+### 简单模式
 
-Simple mode is not a separate scheduling algorithm. It reuses the same streak, interval, and next_review_at logic as other review flows. Its only distinct persisted signal is source = 'simple'.
+简单模式不是一套独立的调度算法。它沿用与其他复习流程相同的 streak、interval 和 `next_review_at` 逻辑；唯一单独落库的标记是 `source = 'simple'`。
 
-## Scheduling Guidance
+## 调度指导
 
-The implementation should stay close to lightweight SM-2 behavior without introducing multiple answer grades. A binary correct or incorrect result is enough for this project.
+实现应尽量贴近轻量级 SM-2 行为，但不要引入多档答案评分。对于本项目，二元的“正确 / 错误”结果已经足够。
 
-Recommended behavior:
+建议行为：
 
-- correct answers raise easiness_factor by a small bounded amount
-- wrong answers reduce easiness_factor by a small bounded amount
-- easiness_factor has a hard lower bound of 1.3
-- interval growth is driven by correct_streak and easiness_factor together
+- 答对时对 `easiness_factor` 做小幅且有上界的提升
+- 答错时对 `easiness_factor` 做小幅下降
+- `easiness_factor` 的硬下限为 `1.3`
+- 间隔增长由 `correct_streak` 和 `easiness_factor` 共同驱动
 
-The exact interval formula can remain in the implementation plan, but it must preserve the meaning of the persisted fields defined here.
+具体的间隔公式可以放到实现计划里确定，但必须保持这里定义的持久化字段含义不变。
 
-## Database Initialization and Rebuild Strategy
+## 数据库初始化与重建策略
 
-CREATE TABLE IF NOT EXISTS is not enough to replace an existing old-schema table. Initialization must explicitly detect the installed shape of user_word_progress.
+仅靠 `CREATE TABLE IF NOT EXISTS` 不足以替换已存在的旧 schema 表。初始化过程必须显式检测当前安装的 `user_word_progress` 表结构。
 
-### Upgrade Rule
+### 升级规则
 
-At startup, before applying the standard create-table statements:
+在启动时、执行常规 `create-table` 语句之前：
 
-1. inspect the columns of user_word_progress
-2. if the table matches the old schema, drop only user_word_progress
-3. recreate user_word_progress using the new schema
-4. recreate related indexes
+1. 检查 `user_word_progress` 的列定义
+2. 如果该表仍是旧 schema，则仅删除 `user_word_progress`
+3. 使用新 schema 重新创建 `user_word_progress`
+4. 重新创建相关索引
 
-Other tables such as users, words, daily_records, and user_settings must not be rebuilt as part of this change.
+`users`、`words`、`daily_records`、`user_settings` 等其他表不得因为这次改动被一并重建。
 
-### Schema Versioning
+### Schema 版本控制
 
-The database should use PRAGMA user_version to make this upgrade explicit.
+数据库应使用 `PRAGMA user_version` 来显式表示这次升级。
 
-- version 1 = legacy schema
-- version 2 = SM-2 progress schema
+- `version 1` = 旧版 schema
+- `version 2` = SM-2 进度 schema
 
-If user_version is less than 2, initialization upgrades the schema by rebuilding user_word_progress and then sets user_version to 2.
+如果 `user_version` 小于 `2`，初始化流程应通过重建 `user_word_progress` 完成升级，并在结束后将 `user_version` 设为 `2`。
 
-## Validation Requirements
+## 验证要求
 
-The minimum verification scope for this design is:
+本设计的最小验证范围为：
 
-1. a fresh database initializes user_word_progress with the expected columns, defaults, and constraints
-2. a legacy database is upgraded so that user_word_progress matches the new schema after initializeDatabase runs
+1. 新数据库初始化后，`user_word_progress` 具有预期的列、默认值和约束
+2. 旧数据库在执行 `initializeDatabase` 后，`user_word_progress` 会被升级为新 schema
 
-These checks are sufficient for the schema change itself. Full review-flow testing can be planned separately.
+对于这次 schema 变更，这两项检查已经足够；完整的复习流程测试可以单独规划。
 
-## Files Expected To Change Later
+## 后续预期会变更的文件
 
-- Learning/Learning/Learning/DatabaseManager.swift for schema definition and upgrade logic
-- test files to validate fresh initialization and old-schema rebuild behavior
+- `Learning/Learning/Learning/DatabaseManager.swift`，用于 schema 定义和升级逻辑
+- 用于验证全新初始化和旧 schema 重建行为的测试文件
 
-## Risks and Tradeoffs
+## 风险与权衡
 
-- Rebuilding user_word_progress discards existing progress rows in that table, which is accepted for this development-phase change.
-- Introducing a version gate now adds a small amount of setup logic, but it prevents future schema changes from relying on implicit detection only.
-- Using a binary correct or incorrect review result simplifies the model and leaves less room for nuanced scheduling, but matches the current product scope.
+- 重建 `user_word_progress` 会丢弃该表中的历史进度记录；在当前开发阶段，这个代价是可接受的。
+- 现在就引入版本门槛会增加少量初始化逻辑，但可以避免后续 schema 变更继续依赖隐式检测。
+- 使用二元“正确 / 错误”结果简化了模型，牺牲了一部分细腻调度能力，但符合当前产品范围。
