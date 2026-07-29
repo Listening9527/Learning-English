@@ -19,7 +19,6 @@ private let selectionCalendarCurrent: Calendar = {
 final class DatabaseManager {
     static let shared = DatabaseManager()
 
-    private let sm2SchemaVersion = 2
     private var db: OpaquePointer?
     private let fileName = "learning.sqlite3"
 
@@ -37,7 +36,6 @@ final class DatabaseManager {
 
         if isFirstInstallLaunch {
             createBaseSchema()
-            setUserVersion(sm2SchemaVersion)
             return
         }
 
@@ -170,15 +168,10 @@ final class DatabaseManager {
 
     private func migrateUserWordProgressSchemaIfNeeded() {
         let columns = tableColumns("user_word_progress")
-        let currentVersion = fetchUserVersion()
         let needsRebuild = isLegacyUserWordProgressSchema(columns)
 
         if needsRebuild {
             rebuildUserWordProgressTable()
-        }
-
-        if currentVersion < sm2SchemaVersion || needsRebuild {
-            setUserVersion(sm2SchemaVersion)
         }
     }
 
@@ -215,74 +208,6 @@ final class DatabaseManager {
         execute(userWordProgressCreateStatement)
     }
 
-    private func fetchUserVersion() -> Int {
-        guard let db else {
-            return 0
-        }
-
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "PRAGMA user_version;", -1, &statement, nil) == SQLITE_OK else {
-            return 0
-        }
-        defer { sqlite3_finalize(statement) }
-
-        guard sqlite3_step(statement) == SQLITE_ROW else {
-            return 0
-        }
-
-        return Int(sqlite3_column_int(statement, 0))
-    }
-
-    private func setUserVersion(_ version: Int) {
-        execute("PRAGMA user_version = \(version);")
-    }
-
-    private func uniqueIndexColumns(tableName: String) -> [[String]] {
-        guard let db else {
-            return []
-        }
-
-        let indexListSQL = "PRAGMA index_list(\(tableName));"
-        var listStatement: OpaquePointer?
-        var uniqueIndexes: [String] = []
-
-        guard sqlite3_prepare_v2(db, indexListSQL, -1, &listStatement, nil) == SQLITE_OK else {
-            return []
-        }
-        defer { sqlite3_finalize(listStatement) }
-
-        while sqlite3_step(listStatement) == SQLITE_ROW {
-            let isUnique = sqlite3_column_int(listStatement, 2) == 1
-            guard isUnique, let indexNameCStr = sqlite3_column_text(listStatement, 1) else {
-                continue
-            }
-            uniqueIndexes.append(String(cString: indexNameCStr))
-        }
-
-        var allColumns: [[String]] = []
-        for indexName in uniqueIndexes {
-            let indexInfoSQL = "PRAGMA index_info(\(indexName));"
-            var infoStatement: OpaquePointer?
-            var columns: [String] = []
-
-            guard sqlite3_prepare_v2(db, indexInfoSQL, -1, &infoStatement, nil) == SQLITE_OK else {
-                continue
-            }
-
-            while sqlite3_step(infoStatement) == SQLITE_ROW {
-                guard let columnNameCStr = sqlite3_column_text(infoStatement, 2) else {
-                    continue
-                }
-                columns.append(String(cString: columnNameCStr))
-            }
-            sqlite3_finalize(infoStatement)
-
-            allColumns.append(columns)
-        }
-
-        return allColumns
-    }
-
     private func migrateWordsSchemaIfNeeded() {
         let columns = tableColumns("words")
         guard !columns.isEmpty else {
@@ -306,89 +231,12 @@ final class DatabaseManager {
 
         let missingRequired = !requiredNames.isSubset(of: names)
         let hasLegacyMeaning = names.contains("meaning")
-        let hasLegacyUniqueWord = uniqueIndexColumns(tableName: "words")
-            .contains(where: { $0.count == 1 && $0.first == "word" })
-
-        guard missingRequired || hasLegacyMeaning || hasLegacyUniqueWord else {
+        guard missingRequired || hasLegacyMeaning else {
             return
         }
 
-        let hasColumn: (String) -> Bool = { name in
-            names.contains(name)
-        }
-
-        let posExpr = hasColumn("pos") ? "pos" : "NULL"
-        let definitionExpr: String = {
-            if hasColumn("definition") {
-                return "definition"
-            }
-            if hasColumn("meaning") {
-                return "COALESCE(meaning, '')"
-            }
-            return "''"
-        }()
-        let exampleExpr = hasColumn("example") ? "example" : "NULL"
-        let audioURLExpr = hasColumn("audio_url") ? "audio_url" : "NULL"
-        let typeExpr = hasColumn("type")
-            ? "CASE WHEN type IN ('word', 'phrase', 'pattern') THEN type ELSE 'word' END"
-            : "'word'"
-        let isCustomExpr = hasColumn("is_custom")
-            ? "CASE WHEN is_custom IN (0, 1) THEN is_custom ELSE 0 END"
-            : "0"
-        let createdAtExpr = hasColumn("created_at") ? "created_at" : "datetime('now')"
-        let updatedAtExpr = hasColumn("updated_at") ? "updated_at" : "datetime('now')"
-
-        execute("BEGIN TRANSACTION;")
-        execute(
-            """
-            CREATE TABLE IF NOT EXISTS words_new (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                word TEXT NOT NULL,
-                phonetic TEXT,
-                pos TEXT,
-                definition TEXT NOT NULL,
-                example TEXT,
-                audio_url TEXT,
-                type TEXT NOT NULL DEFAULT 'word' CHECK (type IN ('word', 'phrase', 'pattern')),
-                is_custom INTEGER NOT NULL DEFAULT 0 CHECK (is_custom IN (0, 1)),
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-            """
-        )
-        execute(
-            """
-            INSERT INTO words_new (
-                id,
-                word,
-                phonetic,
-                pos,
-                definition,
-                example,
-                audio_url,
-                type,
-                is_custom,
-                created_at,
-                updated_at
-            )
-            SELECT
-                id,
-                word,
-                phonetic,
-                \(posExpr) AS pos,
-                \(definitionExpr) AS definition,
-                \(exampleExpr) AS example,
-                \(audioURLExpr) AS audio_url,
-                \(typeExpr) AS type,
-                \(isCustomExpr) AS is_custom,
-                \(createdAtExpr) AS created_at,
-                \(updatedAtExpr) AS updated_at
-            FROM words;
-            """
-        )
-        execute("DROP TABLE words;")
-        execute("ALTER TABLE words_new RENAME TO words;")
-        execute("COMMIT;")
+        execute("DROP TABLE IF EXISTS words;")
+        execute(wordsCreateStatement(tableName: "words"))
     }
 
     private func migrateUserSettingsSchemaIfNeeded() {
@@ -442,19 +290,7 @@ final class DatabaseManager {
             );
             """,
             """
-            CREATE TABLE IF NOT EXISTS words (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                word TEXT NOT NULL,
-                phonetic TEXT,
-                pos TEXT,
-                definition TEXT NOT NULL,
-                example TEXT,
-                audio_url TEXT,
-                type TEXT NOT NULL DEFAULT 'word' CHECK (type IN ('word', 'phrase', 'pattern')),
-                is_custom INTEGER NOT NULL DEFAULT 0 CHECK (is_custom IN (0, 1)),
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
+            \(wordsCreateStatement(tableName: "words"))
             """,
             """
             CREATE TABLE IF NOT EXISTS wordbook_words (
@@ -534,6 +370,24 @@ final class DatabaseManager {
             END;
             """
         ]
+    }
+
+    private func wordsCreateStatement(tableName: String) -> String {
+        """
+        CREATE TABLE IF NOT EXISTS \(tableName) (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL,
+            phonetic TEXT,
+            pos TEXT,
+            definition TEXT NOT NULL,
+            example TEXT,
+            audio_url TEXT,
+            type TEXT NOT NULL DEFAULT 'word' CHECK (type IN ('word', 'phrase', 'pattern')),
+            is_custom INTEGER NOT NULL DEFAULT 0 CHECK (is_custom IN (0, 1)),
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        """
     }
 
     private var userWordProgressCreateStatement: String {
@@ -1253,11 +1107,6 @@ extension DatabaseManager {
         return tableSQL
     }
 
-    func fetchUserVersionForTesting() -> Int {
-        initializeDatabase()
-        return fetchUserVersion()
-    }
-
     func installLegacyUserWordProgressSchemaForTesting() throws {
         initializeDatabase()
         guard isRunningTests else {
@@ -1282,7 +1131,6 @@ extension DatabaseManager {
             );
             """
         )
-        try executeThrowing("PRAGMA user_version = 1;")
     }
 
     private func insertSearchHistory(query: String, source: String) throws {

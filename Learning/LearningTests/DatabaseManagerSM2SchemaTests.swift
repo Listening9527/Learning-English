@@ -20,8 +20,6 @@ final class DatabaseManagerSM2SchemaTests: XCTestCase {
         XCTAssertFalse(createSQL.contains("mastery_level"))
         XCTAssertFalse(createSQL.contains("last_score"))
         XCTAssertFalse(createSQL.contains("last_practiced_at"))
-
-        XCTAssertEqual(database.fetchUserVersionForTesting(), 2)
     }
 
     func test_initializeDatabase_rebuilds_legacy_user_word_progress_schema() throws {
@@ -41,7 +39,5 @@ final class DatabaseManagerSM2SchemaTests: XCTestCase {
         XCTAssertFalse(createSQL.contains("mastery_level"))
         XCTAssertFalse(createSQL.contains("last_score"))
         XCTAssertFalse(createSQL.contains("last_practiced_at"))
-
-        XCTAssertEqual(database.fetchUserVersionForTesting(), 2)
     }
 }
