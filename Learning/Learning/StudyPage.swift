@@ -6,15 +6,18 @@ struct StudyPage: View {
     let scorer: PronunciationScorer
     private let startInWrongWordsMode: Bool
     private let showPracticeReportOnAppear: Bool
+    private let initialAccent: AccentOption
 
     init(
         scorer: PronunciationScorer,
         startInWrongWordsMode: Bool = false,
-        showPracticeReportOnAppear: Bool = false
+        showPracticeReportOnAppear: Bool = false,
+        initialAccent: AccentOption = .american
     ) {
         self.scorer = scorer
         self.startInWrongWordsMode = startInWrongWordsMode
         self.showPracticeReportOnAppear = showPracticeReportOnAppear
+        self.initialAccent = initialAccent
     }
 
     static func makeForTesting(scorer: PronunciationScorer) -> StudyPage {
@@ -25,7 +28,8 @@ struct StudyPage: View {
         LegacyStudyContent(
             scorer: scorer,
             startInWrongWordsMode: startInWrongWordsMode,
-            showPracticeReportOnAppear: showPracticeReportOnAppear
+            showPracticeReportOnAppear: showPracticeReportOnAppear,
+            initialAccent: initialAccent
         )
     }
 }
@@ -66,12 +70,14 @@ struct LegacyStudyContent: View {
     init(
         scorer: PronunciationScorer,
         startInWrongWordsMode: Bool = false,
-        showPracticeReportOnAppear: Bool = false
+        showPracticeReportOnAppear: Bool = false,
+        initialAccent: AccentOption = .american
     ) {
         self.scorer = scorer
         self.startInWrongWordsMode = startInWrongWordsMode
         _useWrongWordsOnly = State(initialValue: startInWrongWordsMode)
         _showPracticeReport = State(initialValue: showPracticeReportOnAppear)
+        _selectedAccent = State(initialValue: initialAccent)
     }
 
     private var displayedWords: [String] {
@@ -101,60 +107,7 @@ struct LegacyStudyContent: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("学习模式") {
-                    Text("默认每次从词库加载 10 个单词。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("第 1 项：选择正确释义") {
-                    if !currentDisplayedWord.isEmpty {
-                        Text(currentDisplayedWord)
-                            .font(.headline)
-                    }
-
-                    if definitionOptions.isEmpty {
-                        Text("当前单词暂无足够释义数据，无法生成选项。")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(definitionOptions, id: \.self) { option in
-                            Button {
-                                selectedDefinition = option
-                                definitionSelectionIsCorrect = option == currentWordSummary?.definition
-                                hasUnlockedPronunciation = definitionSelectionIsCorrect == true
-                                if definitionSelectionIsCorrect != true {
-                                    hasUnlockedSpelling = false
-                                    spellingAnswer = ""
-                                    spellingFeedback = nil
-                                }
-                            } label: {
-                                HStack(alignment: .top, spacing: 12) {
-                                    Image(systemName: optionStateIcon(for: option))
-                                        .foregroundStyle(optionStateColor(for: option))
-                                    Text(option)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .foregroundStyle(.primary)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        if let definitionSelectionIsCorrect {
-                            Text(definitionSelectionIsCorrect ? "回答正确。" : "回答错误，请重试。")
-                                .font(.footnote)
-                                .foregroundStyle(definitionSelectionIsCorrect ? .green : .red)
-                        }
-                    }
-                }
-
-                Section("第 2 项：单词发音练习") {
-                    if !hasUnlockedPronunciation {
-                        Text("先完成第一项并答对后，再进行发音练习。")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-
+                Section("当前学习单词") {
                     if !currentDisplayedWord.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(currentDisplayedWord)
@@ -164,142 +117,143 @@ struct LegacyStudyContent: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
-                            if let summary = currentWordSummary, !summary.definition.isEmpty {
-                                Text(summary.definition)
+                        }
+                    }
+
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) {
+                            outerActionButtons
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            outerActionButtons
+                        }
+                    }
+                    .disabled(currentDisplayedWord.isEmpty)
+                }
+
+                if !hasUnlockedPronunciation {
+                    Section("第 1 项：选择正确释义") {
+                        if definitionOptions.isEmpty {
+                            Text("当前单词暂无足够释义数据，无法生成选项。")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(definitionOptions, id: \.self) { option in
+                                Button {
+                                    selectedDefinition = option
+                                    definitionSelectionIsCorrect = option == currentWordSummary?.definition
+                                    hasUnlockedPronunciation = definitionSelectionIsCorrect == true
+                                    if definitionSelectionIsCorrect != true {
+                                        hasUnlockedSpelling = false
+                                        spellingAnswer = ""
+                                        spellingFeedback = nil
+                                    }
+                                } label: {
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Image(systemName: optionStateIcon(for: option))
+                                            .foregroundStyle(optionStateColor(for: option))
+                                        Text(option)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .foregroundStyle(.primary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            if let definitionSelectionIsCorrect {
+                                Text(definitionSelectionIsCorrect ? "回答正确。" : "回答错误，请重试。")
                                     .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(definitionSelectionIsCorrect ? .green : .red)
                             }
                         }
                     }
+                }
 
-                    Picker("发音口音", selection: $selectedAccent) {
-                        ForEach(AccentOption.allCases) { accent in
-                            Text(accent.title).tag(accent)
+                if hasUnlockedPronunciation && !hasUnlockedSpelling {
+                    Section("第 2 项：单词发音练习") {
+                        recordingScoreButton
+
+                        Toggle("慢速模式（更适合跟读）", isOn: $useSlowMode)
+                        Toggle("低分自动触发教学连播", isOn: $scorer.autoReplayLowScore)
+
+                        Button("教学连播（标准 + 慢速）") {
+                            scorer.speakTeachingSequence(word: currentDisplayedWord, accent: selectedAccent)
                         }
-                    }
-                    .pickerStyle(.segmented)
-                    .disabled(!hasUnlockedPronunciation)
+                        .buttonStyle(.bordered)
 
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) {
-                            navigationButtons
-                            Spacer(minLength: 0)
-                            pageIndicator
-                        }
-
-                        VStack(alignment: .leading, spacing: 12) {
-                            navigationButtons
-                            pageIndicator
-                        }
-                    }
-
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) {
-                            primaryPlaybackButtons
+                        if let latest = scorer.latestScores[currentDisplayedWord] {
+                            Text("当前单词最近一次得分：\(latest) / 100")
+                                .foregroundStyle(.secondary)
                         }
 
-                        VStack(alignment: .leading, spacing: 12) {
-                            primaryPlaybackButtons
-                        }
-                    }
-                    .disabled(!hasUnlockedPronunciation)
-
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) {
-                            replayButtons
+                        if !scorer.recognizedText.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("识别结果")
+                                    .font(.headline)
+                                Text(scorer.recognizedText)
+                                    .font(.body)
+                            }
                         }
 
-                        VStack(alignment: .leading, spacing: 12) {
-                            replayButtons
+                        if let score = scorer.score {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("发音得分")
+                                    .font(.headline)
+                                Text("\(score) / 100")
+                                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                                    .foregroundStyle(scoreColor(score))
+                                Text(scoreHint(score))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                    }
-                    .disabled(!hasUnlockedPronunciation)
 
-                    Toggle("慢速模式（更适合跟读）", isOn: $useSlowMode)
-                    .disabled(!hasUnlockedPronunciation)
-                    Toggle("低分自动触发教学连播", isOn: $scorer.autoReplayLowScore)
-                    .disabled(!hasUnlockedPronunciation)
-
-                    Button("教学连播（标准 + 慢速）") {
-                        scorer.speakTeachingSequence(word: currentDisplayedWord, accent: selectedAccent)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!hasUnlockedPronunciation)
-
-                    if let latest = scorer.latestScores[currentDisplayedWord] {
-                        Text("当前单词最近一次得分：\(latest) / 100")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if !scorer.recognizedText.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("识别结果")
-                                .font(.headline)
-                            Text(scorer.recognizedText)
-                                .font(.body)
-                        }
-                    }
-
-                    if let score = scorer.score {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("发音得分")
-                                .font(.headline)
-                            Text("\(score) / 100")
-                                .font(.system(size: 34, weight: .bold, design: .rounded))
-                                .foregroundStyle(scoreColor(score))
-                            Text(scoreHint(score))
-                                .font(.subheadline)
+                        if !scorer.statusMessage.isEmpty {
+                            Text(scorer.statusMessage)
+                                .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                     }
-
-                    if !scorer.statusMessage.isEmpty {
-                        Text(scorer.statusMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
                 }
 
-                Section("第 3 项：拼写单词") {
-                    if !hasUnlockedSpelling {
-                        Text("先完成第二项并获得当前单词发音得分后，再进行拼写。")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                if hasUnlockedSpelling {
+                    Section("第 3 项：拼写单词") {
+                        if let summary = currentWordSummary, !summary.definition.isEmpty {
+                            Text("根据释义拼写单词：\(summary.definition)")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
 
-                    if let summary = currentWordSummary, !summary.definition.isEmpty {
-                        Text("根据释义拼写单词：\(summary.definition)")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                        TextField("输入单词拼写", text: $spellingAnswer)
+                            .focused($focusedInput, equals: .spellingAnswer)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.done)
+                            .onSubmit {
+                                checkSpellingAnswer()
+                                dismissKeyboard()
+                            }
 
-                    TextField("输入单词拼写", text: $spellingAnswer)
-                        .focused($focusedInput, equals: .spellingAnswer)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.done)
-                        .onSubmit {
+                        Button("检查拼写") {
                             checkSpellingAnswer()
                             dismissKeyboard()
                         }
-                        .disabled(!hasUnlockedSpelling)
+                        .buttonStyle(.bordered)
 
-                    Button("检查拼写") {
-                        checkSpellingAnswer()
-                        dismissKeyboard()
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!hasUnlockedSpelling)
-
-                    if let spellingFeedback {
-                        Text(spellingFeedback)
-                            .font(.footnote)
-                            .foregroundStyle(isSpellingAnswerCorrect ? .green : .red)
+                        if let spellingFeedback {
+                            Text(spellingFeedback)
+                                .font(.footnote)
+                                .foregroundStyle(isSpellingAnswerCorrect ? .green : .red)
+                        }
                     }
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("单词发音评分")
+            .navigationTitle("学习模式")
+            .safeAreaInset(edge: .bottom) {
+                bottomNavigationBar
+            }
             .onAppear {
                 scorer.setAccent(selectedAccent)
                 scorer.loadPersistedScores()
@@ -415,13 +369,18 @@ struct LegacyStudyContent: View {
             .foregroundStyle(.secondary)
     }
 
-    @ViewBuilder
-    private var primaryPlaybackButtons: some View {
-        Button(useSlowMode ? "播放慢速发音" : "播放标准发音") {
-            scorer.speak(word: currentDisplayedWord, slowMode: useSlowMode, accent: selectedAccent)
+    private var bottomNavigationBar: some View {
+        HStack(spacing: 12) {
+            navigationButtons
+            Spacer(minLength: 0)
+            pageIndicator
         }
-        .buttonStyle(.borderedProminent)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+    }
 
+    private var recordingScoreButton: some View {
         Button(scorer.isRecording ? "停止并评分" : "开始录音评分") {
             if scorer.isRecording {
                 scorer.stopRecordingAndScore()
@@ -433,7 +392,12 @@ struct LegacyStudyContent: View {
     }
 
     @ViewBuilder
-    private var replayButtons: some View {
+    private var outerActionButtons: some View {
+        Button("播放标准发音") {
+            scorer.speak(word: currentDisplayedWord, slowMode: false, accent: selectedAccent)
+        }
+        .buttonStyle(.borderedProminent)
+
         Button("查词典释义") {
             presentDictionaryDefinition(for: currentDisplayedWord)
         }
@@ -568,8 +532,23 @@ struct LegacyStudyContent: View {
         if isSpellingAnswerCorrect {
             spellingFeedback = "拼写正确。"
             markCurrentBatchCompletedIfNeeded()
+            moveToNextWordAfterSpellingSuccess()
         } else {
             spellingFeedback = "拼写不正确，正确答案是 \(currentDisplayedWord)。"
+        }
+    }
+
+    private func moveToNextWordAfterSpellingSuccess() {
+        dismissKeyboard()
+
+        if currentWordIndex < displayedWords.count - 1 {
+            currentWordIndex += 1
+            scorer.resetForNewWord()
+            return
+        }
+
+        Task {
+            await loadWordsFromDefaultPool()
         }
     }
 
@@ -603,8 +582,7 @@ struct LegacyStudyContent: View {
 
     private func presentDictionaryDefinition(for word: String) {
         let normalized = word.trimmingCharacters(in: .whitespacesAndNewlines)
-        let term = normalized.split(separator: " ").first.map(String.init) ?? ""
-        dictionaryInitialTerm = term
+        dictionaryInitialTerm = normalized
         showDictionaryLookup = true
     }
 

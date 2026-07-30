@@ -14,15 +14,17 @@ struct HomePage: View {
     @StateObject private var grammarProgressStore = GrammarProgressStore()
     @StateObject private var grammarReviewStore = GrammarReviewStore()
     @State private var showResetScoresConfirm = false
+    @State private var selectedAccent: AccentOption = .american
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     summaryHeader
+                    accentSelectionSection
 
                     NavigationLink {
-                        StudyPage(scorer: scorer)
+                        StudyPage(scorer: scorer, initialAccent: selectedAccent)
                     } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 6) {
@@ -81,7 +83,7 @@ struct HomePage: View {
                 .font(.headline)
 
             NavigationLink {
-                StudyPage(scorer: scorer, startInWrongWordsMode: true)
+                StudyPage(scorer: scorer, startInWrongWordsMode: true, initialAccent: selectedAccent)
             } label: {
                 quickActionCard(
                     title: "错题本练习",
@@ -184,6 +186,20 @@ struct HomePage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(color.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var accentSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("发音口音")
+                .font(.headline)
+
+            Picker("发音口音", selection: $selectedAccent) {
+                ForEach(AccentOption.allCases) { accent in
+                    Text(accent.title).tag(accent)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
     }
 
     private var ipaTutorialSection: some View {

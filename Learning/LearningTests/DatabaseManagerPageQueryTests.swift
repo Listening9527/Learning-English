@@ -175,4 +175,15 @@ final class DatabaseManagerPageQueryTests: XCTestCase {
         let words = try database.fetchRecentWordSummaries(limit: 40)
         XCTAssertEqual(words.count, 30)
     }
+
+    func test_fetchStudyWords_bootstrapsSamples_whenWordsTableIsEmpty() throws {
+        let database = DatabaseManager.shared
+        try database.resetTestingFixturesForTesting()
+
+        let studyWords = try database.fetchStudyWords(limit: 10, offset: 0)
+        XCTAssertEqual(studyWords.count, 10)
+
+        let allWords = try database.fetchRecentWordSummaries(limit: 40)
+        XCTAssertEqual(allWords.count, 30)
+    }
 }

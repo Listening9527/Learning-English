@@ -617,6 +617,17 @@ extension DatabaseManager {
         let cappedLimit = max(1, limit)
         let cappedOffset = max(0, offset)
 
+        var words = try fetchStudyWordsFromWordsTable(limit: cappedLimit, offset: cappedOffset)
+        if words.isEmpty, cappedOffset == 0 {
+            try insertThirtySampleWords()
+            words = try fetchStudyWordsFromWordsTable(limit: cappedLimit, offset: cappedOffset)
+        }
+
+        return words
+    }
+
+    private func fetchStudyWordsFromWordsTable(limit: Int, offset: Int) throws -> [String] {
+
         let sql =
             """
                         SELECT word
@@ -630,10 +641,10 @@ extension DatabaseManager {
         let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
-        guard sqlite3_bind_int(statement, 1, Int32(cappedLimit)) == SQLITE_OK else {
+        guard sqlite3_bind_int(statement, 1, Int32(limit)) == SQLITE_OK else {
             throw databaseError(message: "Failed to bind study words limit")
         }
-        guard sqlite3_bind_int(statement, 2, Int32(cappedOffset)) == SQLITE_OK else {
+        guard sqlite3_bind_int(statement, 2, Int32(offset)) == SQLITE_OK else {
             throw databaseError(message: "Failed to bind study words offset")
         }
 
