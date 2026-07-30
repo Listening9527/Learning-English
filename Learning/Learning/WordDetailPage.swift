@@ -3,7 +3,6 @@ import SwiftUI
 struct WordDetailPage: View {
     let word: RecentWordSummary
     @ObservedObject var dashboardStore: DashboardStore
-    @ObservedObject var wordbookStore: WordbookStore
 
     @State private var errorMessage: String?
 
@@ -35,19 +34,6 @@ struct WordDetailPage: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            Section("生词本") {
-                if wordbookStore.wordbookOptions.isEmpty {
-                    Text("暂无生词本")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(wordbookStore.wordbookOptions) { option in
-                        Toggle(isOn: membershipBinding(for: option.id)) {
-                            Text(option.name)
-                        }
-                    }
-                }
-            }
-
             Section("操作") {
                 Button("标记为遗忘") {
                     Task {
@@ -57,10 +43,6 @@ struct WordDetailPage: View {
             }
         }
         .navigationTitle("单词详情")
-        .task {
-            await wordbookStore.reload()
-            await wordbookStore.loadMembership(for: word.id)
-        }
         .alert("操作失败", isPresented: errorAlertBinding) {
             Button("知道了", role: .cancel) {
                 errorMessage = nil
@@ -81,24 +63,9 @@ struct WordDetailPage: View {
         )
     }
 
-    private func membershipBinding(for wordbookID: Int64) -> Binding<Bool> {
-        Binding(
-            get: { wordbookStore.isMember(wordID: word.id, wordbookID: wordbookID) },
-            set: { isMember in
-                Task {
-                    do {
-                        try await wordbookStore.setMembership(wordID: word.id, wordbookID: wordbookID, isMember: isMember)
-                    } catch {
-                        errorMessage = error.localizedDescription
-                    }
-                }
-            }
-        )
-    }
-
     private func markForgotten() async {
         do {
-            try await wordbookStore.markForgotten(wordID: word.id)
+            try DatabaseManager.shared.markWordAsForgotten(wordID: word.id)
             await dashboardStore.refresh()
         } catch {
             errorMessage = error.localizedDescription

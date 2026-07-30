@@ -50,32 +50,3 @@ struct UserPreferences: Equatable {
         notificationMinute: 0
     )
 }
-
-struct WordbookSummary: Identifiable, Equatable {
-    let id: Int64
-    let name: String
-    let description: String?
-    let wordCount: Int
-}
-
-enum WordbookFilter: String, CaseIterable, Identifiable {
-    case today
-    case learning
-    case unlearned
-    case easy
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .today:
-            return "今天"
-        case .learning:
-            return "学习中"
-        case .unlearned:
-            return "未掌握"
-        case .easy:
-            return "已掌握"
-        }
-    }
-}

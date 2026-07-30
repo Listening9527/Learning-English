@@ -10,7 +10,6 @@ struct HomePage: View {
     static let grammarEntryDestination: QuickActionDestination = .grammarHub
 
     @ObservedObject var dashboardStore: DashboardStore
-    @ObservedObject var wordbookStore: WordbookStore
     let scorer: PronunciationScorer
     @StateObject private var grammarProgressStore = GrammarProgressStore()
     @StateObject private var grammarReviewStore = GrammarReviewStore()
@@ -57,7 +56,7 @@ struct HomePage: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink("搜索") {
-                        SearchPage(dashboardStore: dashboardStore, wordbookStore: wordbookStore)
+                        SearchPage(dashboardStore: dashboardStore)
                     }
                 }
             }
@@ -259,8 +258,7 @@ struct HomePage: View {
                     NavigationLink {
                         WordDetailPage(
                             word: word,
-                            dashboardStore: dashboardStore,
-                            wordbookStore: wordbookStore
+                            dashboardStore: dashboardStore
                         )
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {

@@ -35,11 +35,11 @@ final class StudySessionStoreTests: XCTestCase {
         XCTAssertEqual(store.cachedMode, .review)
     }
 
-    func test_markBatchCompleted_persistsNextBatchOffset_perWordbook() {
+    func test_markBatchCompleted_persistsNextBatchOffset_perStudyList() {
         let defaults = try! XCTUnwrap(UserDefaults(suiteName: defaultsSuiteName))
         let store = StudySessionStore(defaults: defaults)
 
-        store.markBatchCompleted(wordbookID: 42, batchStart: 10, batchSize: 10)
+        store.markBatchCompleted(studyListID: 42, batchStart: 10, batchSize: 10)
 
         XCTAssertEqual(store.nextBatchOffset(for: 42), 20)
         XCTAssertEqual(store.nextBatchOffset(for: 99), 0)
@@ -49,7 +49,7 @@ final class StudySessionStoreTests: XCTestCase {
         let defaults = try! XCTUnwrap(UserDefaults(suiteName: defaultsSuiteName))
         let store = StudySessionStore(defaults: defaults)
 
-        store.markBatchCompleted(wordbookID: 42, batchStart: 20, batchSize: 10)
+        store.markBatchCompleted(studyListID: 42, batchStart: 20, batchSize: 10)
         store.resetBatchProgress(for: 42)
 
         XCTAssertEqual(store.nextBatchOffset(for: 42), 0)

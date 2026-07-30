@@ -41,6 +41,7 @@ final class DatabaseManager {
 
         // Existing installs still run idempotent create + migration to keep schema healthy.
         createBaseSchema()
+        dropDeprecatedWordbookSchemaIfNeeded()
 
         migrateUserWordProgressSchemaIfNeeded()
         migrateWordsSchemaIfNeeded()
@@ -267,6 +268,13 @@ final class DatabaseManager {
         )
     }
 
+    private func dropDeprecatedWordbookSchemaIfNeeded() {
+        execute("DROP TABLE IF EXISTS wordbook_words;")
+        execute("DROP TABLE IF EXISTS wordbooks;")
+        execute("DROP INDEX IF EXISTS idx_wordbook_words_wordbook_id;")
+        execute("DROP INDEX IF EXISTS idx_wordbook_words_word_id;")
+    }
+
     private var createTableStatements: [String] {
         [
             """
@@ -279,29 +287,7 @@ final class DatabaseManager {
             );
             """,
             """
-            CREATE TABLE IF NOT EXISTS wordbooks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                owner_user_id INTEGER,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE SET NULL
-            );
-            """,
-            """
             \(wordsCreateStatement(tableName: "words"))
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS wordbook_words (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                wordbook_id INTEGER NOT NULL,
-                word_id INTEGER NOT NULL,
-                added_at TEXT NOT NULL DEFAULT (datetime('now')),
-                UNIQUE (wordbook_id, word_id),
-                FOREIGN KEY (wordbook_id) REFERENCES wordbooks(id) ON DELETE CASCADE,
-                FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
-            );
             """,
             """
             \(userWordProgressCreateStatement)
@@ -348,8 +334,6 @@ final class DatabaseManager {
         [
             "CREATE UNIQUE INDEX IF NOT EXISTS uk_word_pos ON words(word, pos);",
             "CREATE INDEX IF NOT EXISTS idx_word ON words(word);",
-            "CREATE INDEX IF NOT EXISTS idx_wordbook_words_wordbook_id ON wordbook_words(wordbook_id);",
-            "CREATE INDEX IF NOT EXISTS idx_wordbook_words_word_id ON wordbook_words(word_id);",
             "CREATE INDEX IF NOT EXISTS idx_user_word_progress_user_word ON user_word_progress(user_id, word_id);",
             "CREATE INDEX IF NOT EXISTS idx_daily_records_user_practiced_at ON daily_records(user_id, practiced_at);",
             "CREATE INDEX IF NOT EXISTS idx_search_history_user_searched_at ON search_history(user_id, searched_at);"
@@ -413,6 +397,14 @@ final class DatabaseManager {
 }
 
 extension DatabaseManager {
+    private struct SampleWordSeed {
+        let word: String
+        let phonetic: String
+        let partOfSpeech: String
+        let definition: String
+        let example: String
+    }
+
     func fetchSearchHistory(limit: Int) throws -> [String] {
         initializeDatabase()
 
@@ -520,140 +512,6 @@ extension DatabaseManager {
         }
     }
 
-    func fetchWordbooks() throws -> [WordbookSummary] {
-        initializeDatabase()
-
-        let sql =
-            """
-            SELECT wb.id, wb.name, wb.description, COUNT(ww.word_id) AS word_count
-            FROM wordbooks wb
-            LEFT JOIN wordbook_words ww ON ww.wordbook_id = wb.id
-            GROUP BY wb.id, wb.name, wb.description
-            ORDER BY wb.id ASC;
-            """
-
-        let statement = try prepareStatement(sql)
-        defer { sqlite3_finalize(statement) }
-
-        var summaries: [WordbookSummary] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            summaries.append(
-                WordbookSummary(
-                    id: sqlite3_column_int64(statement, 0),
-                    name: stringValue(from: statement, index: 1) ?? "未命名生词本",
-                    description: stringValue(from: statement, index: 2),
-                    wordCount: Int(sqlite3_column_int(statement, 3))
-                )
-            )
-        }
-
-        let result = sqlite3_errcode(db)
-        guard result == SQLITE_OK || result == SQLITE_DONE else {
-            throw databaseError(message: "Failed to fetch wordbooks")
-        }
-
-        return summaries
-    }
-
-    func fetchWordbookWords(wordbookID: Int64, filter: WordbookFilter) throws -> [RecentWordSummary] {
-        initializeDatabase()
-
-                let userID = try ensureBackfillUserID()
-                let sql: String
-                switch filter {
-                case .today:
-                        sql =
-                                """
-                                SELECT DISTINCT w.id, w.word, w.phonetic, w.pos, w.definition, w.created_at
-                                FROM wordbook_words ww
-                                JOIN words w ON w.id = ww.word_id
-                                JOIN daily_records dr ON dr.word_id = w.id
-                                WHERE ww.wordbook_id = ?
-                                    AND dr.user_id = ?
-                                    AND dr.practiced = 1
-                                    AND DATE(dr.practiced_at) = DATE('now')
-                                    AND COALESCE(w.pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
-                                    AND w.word <> '\(legacyBackfillPlaceholderWord)'
-                                ORDER BY w.created_at DESC, w.id DESC;
-                                """
-                case .learning:
-                        sql =
-                                """
-                                SELECT w.id, w.word, w.phonetic, w.pos, w.definition, w.created_at
-                                FROM wordbook_words ww
-                                JOIN words w ON w.id = ww.word_id
-                                JOIN user_word_progress p ON p.word_id = w.id AND p.user_id = ?
-                                WHERE ww.wordbook_id = ?
-                                    AND p.status = 1
-                                    AND COALESCE(w.pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
-                                    AND w.word <> '\(legacyBackfillPlaceholderWord)'
-                                ORDER BY w.created_at DESC, w.id DESC;
-                                """
-                case .unlearned:
-                        sql =
-                                """
-                                SELECT w.id, w.word, w.phonetic, w.pos, w.definition, w.created_at
-                                FROM wordbook_words ww
-                                JOIN words w ON w.id = ww.word_id
-                                LEFT JOIN user_word_progress p ON p.word_id = w.id AND p.user_id = ?
-                                WHERE ww.wordbook_id = ?
-                                    AND (p.id IS NULL OR p.status = 0)
-                                    AND COALESCE(w.pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
-                                    AND w.word <> '\(legacyBackfillPlaceholderWord)'
-                                ORDER BY w.created_at DESC, w.id DESC;
-                                """
-                case .easy:
-                        sql =
-                                """
-                                SELECT w.id, w.word, w.phonetic, w.pos, w.definition, w.created_at
-                                FROM wordbook_words ww
-                                JOIN words w ON w.id = ww.word_id
-                                JOIN user_word_progress p ON p.word_id = w.id AND p.user_id = ?
-                                WHERE ww.wordbook_id = ?
-                                    AND p.status = 2
-                                    AND COALESCE(w.pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
-                                    AND w.word <> '\(legacyBackfillPlaceholderWord)'
-                                ORDER BY w.created_at DESC, w.id DESC;
-                                """
-                }
-
-        let statement = try prepareStatement(sql)
-        defer { sqlite3_finalize(statement) }
-
-                switch filter {
-                case .today:
-                        guard sqlite3_bind_int64(statement, 1, wordbookID) == SQLITE_OK,
-                                    sqlite3_bind_int64(statement, 2, userID) == SQLITE_OK else {
-                                throw databaseError(message: "Failed to bind today filter")
-                        }
-                case .learning, .unlearned, .easy:
-                        guard sqlite3_bind_int64(statement, 1, userID) == SQLITE_OK,
-                                    sqlite3_bind_int64(statement, 2, wordbookID) == SQLITE_OK else {
-                                throw databaseError(message: "Failed to bind wordbook filter")
-                        }
-        }
-
-        var words: [RecentWordSummary] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            words.append(
-                RecentWordSummary(
-                    id: sqlite3_column_int64(statement, 0),
-                    word: stringValue(from: statement, index: 1) ?? "",
-                    phonetic: stringValue(from: statement, index: 2),
-                    partOfSpeech: stringValue(from: statement, index: 3),
-                    definition: stringValue(from: statement, index: 4) ?? "",
-                    createdAt: stringValue(from: statement, index: 5) ?? ""
-                )
-            )
-        }
-
-        let result = sqlite3_errcode(db)
-        guard result == SQLITE_OK || result == SQLITE_DONE else {
-            throw databaseError(message: "Failed to fetch wordbook words")
-        }
-
-        return words
-    }
 
     func searchWords(query: String) throws -> [RecentWordSummary] {
         initializeDatabase()
@@ -753,157 +611,7 @@ extension DatabaseManager {
         return insertedWordID
     }
 
-    func setWordbookMembership(wordID: Int64, wordbookID: Int64, isMember: Bool) throws {
-        initializeDatabase()
-
-        if isMember {
-            let sql =
-                """
-                INSERT OR IGNORE INTO wordbook_words (wordbook_id, word_id, added_at)
-                VALUES (?, ?, ?);
-                """
-
-            let statement = try prepareStatement(sql)
-            defer { sqlite3_finalize(statement) }
-
-            guard sqlite3_bind_int64(statement, 1, wordbookID) == SQLITE_OK else {
-                throw databaseError(message: "Failed to bind wordbook id")
-            }
-            guard sqlite3_bind_int64(statement, 2, wordID) == SQLITE_OK else {
-                throw databaseError(message: "Failed to bind word id")
-            }
-            try bindText(timestamp(for: Date()), to: statement, index: 3)
-
-            guard sqlite3_step(statement) == SQLITE_DONE else {
-                throw databaseError(message: "Failed to add wordbook membership")
-            }
-            return
-        }
-
-        let deleteSQL =
-            """
-            DELETE FROM wordbook_words
-            WHERE wordbook_id = ? AND word_id = ?;
-            """
-
-        let deleteStatement = try prepareStatement(deleteSQL)
-        defer { sqlite3_finalize(deleteStatement) }
-
-        guard sqlite3_bind_int64(deleteStatement, 1, wordbookID) == SQLITE_OK else {
-            throw databaseError(message: "Failed to bind wordbook id")
-        }
-        guard sqlite3_bind_int64(deleteStatement, 2, wordID) == SQLITE_OK else {
-            throw databaseError(message: "Failed to bind word id")
-        }
-
-        guard sqlite3_step(deleteStatement) == SQLITE_DONE else {
-            throw databaseError(message: "Failed to remove wordbook membership")
-        }
-    }
-
-    func fetchWordbookOptions() throws -> [(id: Int64, name: String)] {
-        initializeDatabase()
-
-        let sql =
-            """
-            SELECT id, name
-            FROM wordbooks
-            ORDER BY id ASC;
-            """
-
-        let statement = try prepareStatement(sql)
-        defer { sqlite3_finalize(statement) }
-
-        var options: [(id: Int64, name: String)] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            let id = sqlite3_column_int64(statement, 0)
-            let name = stringValue(from: statement, index: 1) ?? "未命名生词本"
-            options.append((id: id, name: name))
-        }
-
-        let result = sqlite3_errcode(db)
-        guard result == SQLITE_OK || result == SQLITE_DONE else {
-            throw databaseError(message: "Failed to fetch wordbooks")
-        }
-
-        if !options.isEmpty {
-            return options
-        }
-
-        let createdID = try createDefaultWordbook()
-        return [(id: createdID, name: "默认生词本")]
-    }
-
-    func fetchWordbookMembership(wordID: Int64) throws -> Set<Int64> {
-        initializeDatabase()
-
-        let sql =
-            """
-            SELECT wordbook_id
-            FROM wordbook_words
-            WHERE word_id = ?;
-            """
-
-        let statement = try prepareStatement(sql)
-        defer { sqlite3_finalize(statement) }
-
-        guard sqlite3_bind_int64(statement, 1, wordID) == SQLITE_OK else {
-            throw databaseError(message: "Failed to bind word id")
-        }
-
-        var membership: Set<Int64> = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            membership.insert(sqlite3_column_int64(statement, 0))
-        }
-
-        let result = sqlite3_errcode(db)
-        guard result == SQLITE_OK || result == SQLITE_DONE else {
-            throw databaseError(message: "Failed to fetch wordbook membership")
-        }
-
-        return membership
-    }
-
-    func createWordbook(name: String, description: String?) throws -> Int64 {
-        initializeDatabase()
-
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else {
-            throw databaseError(message: "Wordbook name is required")
-        }
-
-        let sql =
-            """
-            INSERT INTO wordbooks (name, description, updated_at)
-            VALUES (?, ?, datetime('now'));
-            """
-
-        let statement = try prepareStatement(sql)
-        defer { sqlite3_finalize(statement) }
-
-        try bindText(trimmedName, to: statement, index: 1)
-
-        let trimmedDescription = description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if trimmedDescription.isEmpty {
-            guard sqlite3_bind_null(statement, 2) == SQLITE_OK else {
-                throw databaseError(message: "Failed to bind wordbook description")
-            }
-        } else {
-            try bindText(trimmedDescription, to: statement, index: 2)
-        }
-
-        guard sqlite3_step(statement) == SQLITE_DONE else {
-            throw databaseError(message: "Failed to create wordbook")
-        }
-
-        guard let db else {
-            throw databaseError(message: "Database is not open")
-        }
-
-        return sqlite3_last_insert_rowid(db)
-    }
-
-    func fetchStudyWords(wordbookID: Int64, limit: Int = 10, offset: Int = 0) throws -> [String] {
+    func fetchStudyWords(limit: Int = 10, offset: Int = 0) throws -> [String] {
         initializeDatabase()
 
         let cappedLimit = max(1, limit)
@@ -911,26 +619,21 @@ extension DatabaseManager {
 
         let sql =
             """
-            SELECT w.word
-            FROM wordbook_words ww
-            JOIN words w ON w.id = ww.word_id
-            WHERE ww.wordbook_id = ?
-              AND COALESCE(w.pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
-              AND w.word <> '\(legacyBackfillPlaceholderWord)'
-                        ORDER BY ww.added_at DESC, w.id DESC
+                        SELECT word
+                        FROM words
+                        WHERE COALESCE(pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
+                            AND word <> '\(legacyBackfillPlaceholderWord)'
+                        ORDER BY created_at DESC, id DESC
                         LIMIT ? OFFSET ?;
             """
 
         let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
-        guard sqlite3_bind_int64(statement, 1, wordbookID) == SQLITE_OK else {
-            throw databaseError(message: "Failed to bind wordbook id")
-        }
-        guard sqlite3_bind_int(statement, 2, Int32(cappedLimit)) == SQLITE_OK else {
+        guard sqlite3_bind_int(statement, 1, Int32(cappedLimit)) == SQLITE_OK else {
             throw databaseError(message: "Failed to bind study words limit")
         }
-        guard sqlite3_bind_int(statement, 3, Int32(cappedOffset)) == SQLITE_OK else {
+        guard sqlite3_bind_int(statement, 2, Int32(cappedOffset)) == SQLITE_OK else {
             throw databaseError(message: "Failed to bind study words offset")
         }
 
@@ -1078,6 +781,75 @@ extension DatabaseManager {
         return sqlite3_last_insert_rowid(db)
     }
 
+    func insertThirtySampleWords() throws {
+        initializeDatabase()
+
+        let samples: [SampleWordSeed] = [
+            .init(word: "abandon", phonetic: "/əˈbændən/", partOfSpeech: "verb", definition: "to leave behind", example: "They had to abandon the old plan."),
+            .init(word: "ability", phonetic: "/əˈbɪləti/", partOfSpeech: "noun", definition: "the power or skill to do something", example: "She showed her ability to lead."),
+            .init(word: "absolute", phonetic: "/ˈæbsəluːt/", partOfSpeech: "adjective", definition: "complete and total", example: "We need absolute silence here."),
+            .init(word: "absorb", phonetic: "/əbˈzɔːrb/", partOfSpeech: "verb", definition: "to take in", example: "Plants absorb sunlight for energy."),
+            .init(word: "academic", phonetic: "/ˌækəˈdemɪk/", partOfSpeech: "adjective", definition: "related to education or study", example: "He returned to academic research."),
+            .init(word: "access", phonetic: "/ˈækses/", partOfSpeech: "noun", definition: "a way of entering or using something", example: "Students have access to the library."),
+            .init(word: "accompany", phonetic: "/əˈkʌmpəni/", partOfSpeech: "verb", definition: "to go with someone", example: "I will accompany you to the station."),
+            .init(word: "accurate", phonetic: "/ˈækjərət/", partOfSpeech: "adjective", definition: "correct and exact", example: "The report provides accurate numbers."),
+            .init(word: "achieve", phonetic: "/əˈtʃiːv/", partOfSpeech: "verb", definition: "to successfully reach a goal", example: "They achieved strong sales growth."),
+            .init(word: "acquire", phonetic: "/əˈkwaɪər/", partOfSpeech: "verb", definition: "to obtain something", example: "Children acquire language quickly."),
+            .init(word: "adapt", phonetic: "/əˈdæpt/", partOfSpeech: "verb", definition: "to adjust to new conditions", example: "We must adapt to the market."),
+            .init(word: "adequate", phonetic: "/ˈædɪkwət/", partOfSpeech: "adjective", definition: "enough in quantity or quality", example: "The room has adequate lighting."),
+            .init(word: "adjust", phonetic: "/əˈdʒʌst/", partOfSpeech: "verb", definition: "to change slightly", example: "Adjust the chair to a comfortable height."),
+            .init(word: "administration", phonetic: "/ədˌmɪnɪˈstreɪʃən/", partOfSpeech: "noun", definition: "the management of an organization", example: "She works in school administration."),
+            .init(word: "adopt", phonetic: "/əˈdɑːpt/", partOfSpeech: "verb", definition: "to start using a method or idea", example: "The team adopted a new workflow."),
+            .init(word: "advance", phonetic: "/ədˈvæns/", partOfSpeech: "verb", definition: "to move forward or improve", example: "Technology continues to advance rapidly."),
+            .init(word: "advocate", phonetic: "/ˈædvəkeɪt/", partOfSpeech: "verb", definition: "to publicly support something", example: "Doctors advocate regular exercise."),
+            .init(word: "affect", phonetic: "/əˈfekt/", partOfSpeech: "verb", definition: "to influence something", example: "Weather can affect travel plans."),
+            .init(word: "aggregate", phonetic: "/ˈæɡrɪɡət/", partOfSpeech: "noun", definition: "a total formed by combining parts", example: "The aggregate score decides the winner."),
+            .init(word: "aid", phonetic: "/eɪd/", partOfSpeech: "noun", definition: "help or support", example: "International aid arrived quickly."),
+            .init(word: "allocate", phonetic: "/ˈæləkeɪt/", partOfSpeech: "verb", definition: "to distribute resources", example: "We need to allocate more time to testing."),
+            .init(word: "alter", phonetic: "/ˈɔːltər/", partOfSpeech: "verb", definition: "to change", example: "The design was altered at the last minute."),
+            .init(word: "analysis", phonetic: "/əˈnæləsɪs/", partOfSpeech: "noun", definition: "careful examination of something", example: "The data analysis revealed a pattern."),
+            .init(word: "annual", phonetic: "/ˈænjuəl/", partOfSpeech: "adjective", definition: "happening once a year", example: "The company released its annual report."),
+            .init(word: "anticipate", phonetic: "/ænˈtɪsɪpeɪt/", partOfSpeech: "verb", definition: "to expect in advance", example: "We anticipate higher demand next month."),
+            .init(word: "apparent", phonetic: "/əˈpærənt/", partOfSpeech: "adjective", definition: "easy to notice or understand", example: "It became apparent that we were late."),
+            .init(word: "approach", phonetic: "/əˈproʊtʃ/", partOfSpeech: "noun", definition: "a way of dealing with something", example: "Their approach to learning is practical."),
+            .init(word: "appropriate", phonetic: "/əˈproʊpriət/", partOfSpeech: "adjective", definition: "suitable for a particular purpose", example: "Please wear appropriate shoes."),
+            .init(word: "approximate", phonetic: "/əˈprɑːksɪmət/", partOfSpeech: "adjective", definition: "close to the real amount", example: "The approximate cost is fifty dollars."),
+            .init(word: "arbitrary", phonetic: "/ˈɑːrbɪtreri/", partOfSpeech: "adjective", definition: "based on random choice rather than reason", example: "The deadline felt somewhat arbitrary.")
+        ]
+
+        let sql =
+            """
+            INSERT OR IGNORE INTO words (word, phonetic, pos, definition, example, type, is_custom, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'word', 1, ?, ?);
+            """
+
+        try executeThrowing("BEGIN TRANSACTION;")
+        defer {
+            try? executeThrowing("COMMIT;")
+        }
+
+        for (index, sample) in samples.enumerated() {
+            let statement = try prepareStatement(sql)
+            defer { sqlite3_finalize(statement) }
+
+            let day = String(format: "%02d", index + 1)
+            let createdAt = "2026-07-\(day) 10:00:00"
+
+            try bindText(sample.word, to: statement, index: 1)
+            try bindText(sample.phonetic, to: statement, index: 2)
+            try bindText(sample.partOfSpeech, to: statement, index: 3)
+            try bindText(sample.definition, to: statement, index: 4)
+            try bindText(sample.example, to: statement, index: 5)
+            try bindText(createdAt, to: statement, index: 6)
+            try bindText(createdAt, to: statement, index: 7)
+
+            let result = sqlite3_step(statement)
+            guard result == SQLITE_DONE else {
+                throw databaseError(message: "Failed to insert sample word")
+            }
+        }
+    }
+
     func resetTestingFixturesForTesting() throws {
         initializeDatabase()
         try resetTestingFixtures()
@@ -1154,29 +926,6 @@ extension DatabaseManager {
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw databaseError(message: "Failed to insert search history")
         }
-    }
-
-    private func createDefaultWordbook() throws -> Int64 {
-        let sql =
-            """
-            INSERT INTO wordbooks (name, description)
-            VALUES (?, ?);
-            """
-
-        let statement = try prepareStatement(sql)
-        defer { sqlite3_finalize(statement) }
-
-        try bindText("默认生词本", to: statement, index: 1)
-        try bindText("自动创建的生词本", to: statement, index: 2)
-
-        guard sqlite3_step(statement) == SQLITE_DONE else {
-            throw databaseError(message: "Failed to create default wordbook")
-        }
-
-        guard let db else {
-            throw databaseError(message: "Database is not open")
-        }
-        return sqlite3_last_insert_rowid(db)
     }
 
     func fetchRecentWordSummaries(limit: Int) throws -> [RecentWordSummary] {
@@ -1514,13 +1263,11 @@ extension DatabaseManager {
         let statements = [
             "DELETE FROM daily_records;",
             "DELETE FROM user_word_progress;",
-            "DELETE FROM wordbook_words;",
             "DELETE FROM user_settings;",
-            "DELETE FROM wordbooks;",
             "DELETE FROM search_history;",
             "DELETE FROM users;",
             "DELETE FROM words;",
-            "DELETE FROM sqlite_sequence WHERE name IN ('daily_records', 'user_word_progress', 'wordbook_words', 'user_settings', 'wordbooks', 'search_history', 'users', 'words');"
+            "DELETE FROM sqlite_sequence WHERE name IN ('daily_records', 'user_word_progress', 'user_settings', 'search_history', 'users', 'words');"
         ]
 
         for sql in statements {

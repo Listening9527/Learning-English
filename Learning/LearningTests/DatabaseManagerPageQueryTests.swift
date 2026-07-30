@@ -154,4 +154,25 @@ final class DatabaseManagerPageQueryTests: XCTestCase {
         XCTAssertEqual(stored.notificationHour, 21)
         XCTAssertEqual(stored.notificationMinute, 15)
     }
+
+    func test_insertThirtySampleWords_inserts_thirty_rows() throws {
+        let database = DatabaseManager.shared
+        try database.resetTestingFixturesForTesting()
+
+        try database.insertThirtySampleWords()
+
+        let words = try database.fetchRecentWordSummaries(limit: 40)
+        XCTAssertEqual(words.count, 30)
+    }
+
+    func test_insertThirtySampleWords_is_idempotent() throws {
+        let database = DatabaseManager.shared
+        try database.resetTestingFixturesForTesting()
+
+        try database.insertThirtySampleWords()
+        try database.insertThirtySampleWords()
+
+        let words = try database.fetchRecentWordSummaries(limit: 40)
+        XCTAssertEqual(words.count, 30)
+    }
 }

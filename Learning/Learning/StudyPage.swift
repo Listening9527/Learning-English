@@ -37,7 +37,6 @@ struct LegacyStudyContent: View {
 
     @ObservedObject var scorer: PronunciationScorer
     private let startInWrongWordsMode: Bool
-    @StateObject private var wordbookStore = WordbookStore()
     @StateObject private var studySessionStore = StudySessionStore()
     @State private var useSlowMode: Bool = false
     @State private var selectedAccent: AccentOption = .american
@@ -46,11 +45,7 @@ struct LegacyStudyContent: View {
     @State private var useWrongWordsOnly: Bool = false
     @State private var showPracticeReport: Bool = false
     @State private var showDictionaryLookup: Bool = false
-    @State private var showCreateWordbookSheet: Bool = false
     @State private var dictionaryInitialTerm: String = ""
-    @State private var selectedWordbookID: Int64?
-    @State private var newWordbookName: String = ""
-    @State private var newWordbookDescription: String = ""
     @State private var wordDetailsByWord: [String: RecentWordSummary] = [:]
     @State private var supplementalSummaries: [RecentWordSummary] = []
     @State private var definitionOptions: [String] = []
@@ -66,6 +61,7 @@ struct LegacyStudyContent: View {
     @FocusState private var focusedInput: InputField?
 
     private let defaultStudyWordLimit = 10
+    private let defaultStudyListID: Int64 = 0
 
     init(
         scorer: PronunciationScorer,
@@ -105,24 +101,10 @@ struct LegacyStudyContent: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("单词本学习") {
-                    Text("默认每次从所选单词本加载 10 个单词。")
+                Section("学习模式") {
+                    Text("默认每次从词库加载 10 个单词。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                }
-
-                Section("词表与练习模式") {
-                    Picker("选择单词本", selection: $selectedWordbookID) {
-                        Text("请选择单词本").tag(Int64?.none)
-                        ForEach(wordbookStore.wordbookOptions) { option in
-                            Text(option.name).tag(Optional(option.id))
-                        }
-                    }
-
-                    Button("新建单词本") {
-                        showCreateWordbookSheet = true
-                    }
-                    .buttonStyle(.bordered)
                 }
 
                 Section("第 1 项：选择正确释义") {
@@ -325,17 +307,8 @@ struct LegacyStudyContent: View {
                 clampCurrentIndex()
             }
             .task {
-                await wordbookStore.reload()
                 await loadSupplementalSummaries()
-                if selectedWordbookID == nil {
-                    selectedWordbookID = wordbookStore.wordbookOptions.first?.id
-                }
-                await loadWordsFromSelectedWordbook()
-            }
-            .onChange(of: selectedWordbookID) { _ in
-                Task {
-                    await loadWordsFromSelectedWordbook()
-                }
+                await loadWordsFromDefaultPool()
             }
             .onChange(of: selectedAccent) { newAccent in
                 scorer.setAccent(newAccent)
@@ -367,41 +340,12 @@ struct LegacyStudyContent: View {
                     DictionaryLookupPage(initialTerm: dictionaryInitialTerm)
                 }
             }
-            .sheet(isPresented: $showCreateWordbookSheet) {
-                createWordbookSheet
-            }
             .alert("操作失败", isPresented: errorAlertBinding) {
                 Button("知道了", role: .cancel) {
                     errorMessage = nil
                 }
             } message: {
                 Text(errorMessage ?? "")
-            }
-        }
-    }
-
-    private var createWordbookSheet: some View {
-        NavigationStack {
-            Form {
-                Section("新建单词本") {
-                    TextField("名称", text: $newWordbookName)
-                    TextField("描述（可选）", text: $newWordbookDescription, axis: .vertical)
-                }
-            }
-            .navigationTitle("创建单词本")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("取消") {
-                        showCreateWordbookSheet = false
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("保存") {
-                        Task {
-                            await createWordbook()
-                        }
-                    }
-                }
             }
         }
     }
@@ -496,48 +440,26 @@ struct LegacyStudyContent: View {
         .buttonStyle(.bordered)
     }
 
-    private func createWordbook() async {
-        do {
-            let option = try await wordbookStore.createWordbook(
-                name: newWordbookName,
-                description: newWordbookDescription
-            )
-
-            selectedWordbookID = option.id
-            newWordbookName = ""
-            newWordbookDescription = ""
-            showCreateWordbookSheet = false
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
     private func loadSupplementalSummaries() async {
         do {
-            supplementalSummaries = try await wordbookStore.fetchRecentWordSummaries(limit: 20)
+            supplementalSummaries = try DatabaseManager.shared.fetchRecentWordSummaries(limit: 20)
             refreshDefinitionOptions()
         } catch {
             supplementalSummaries = []
         }
     }
 
-    private func loadWordsFromSelectedWordbook() async {
-        guard let wordbookID = selectedWordbookID else {
-            return
-        }
-
+    private func loadWordsFromDefaultPool() async {
         do {
-            let nextOffset = studySessionStore.nextBatchOffset(for: wordbookID)
-            var words = try await wordbookStore.fetchStudyWords(
-                wordbookID: wordbookID,
+            let nextOffset = studySessionStore.nextBatchOffset(for: defaultStudyListID)
+            var words = try DatabaseManager.shared.fetchStudyWords(
                 limit: defaultStudyWordLimit,
                 offset: nextOffset
             )
 
             if words.isEmpty, nextOffset > 0 {
-                studySessionStore.resetBatchProgress(for: wordbookID)
-                words = try await wordbookStore.fetchStudyWords(
-                    wordbookID: wordbookID,
+                studySessionStore.resetBatchProgress(for: defaultStudyListID)
+                words = try DatabaseManager.shared.fetchStudyWords(
                     limit: defaultStudyWordLimit,
                     offset: 0
                 )
@@ -547,7 +469,7 @@ struct LegacyStudyContent: View {
             }
 
             guard !words.isEmpty else {
-                errorMessage = "该单词本暂无单词，请先在单词详情中加入生词本。"
+                errorMessage = "词库暂无可学习单词，请先在搜索页添加单词。"
                 return
             }
 
@@ -574,7 +496,7 @@ struct LegacyStudyContent: View {
         }
 
         do {
-            let summaries = try await wordbookStore.fetchWordSummaries(words: normalizedWords)
+            let summaries = try DatabaseManager.shared.fetchWordSummaries(words: normalizedWords)
             var merged = replaceAll ? [String: RecentWordSummary]() : wordDetailsByWord
 
             if replaceAll {
@@ -667,13 +589,12 @@ struct LegacyStudyContent: View {
         guard !useWrongWordsOnly,
               !hasMarkedCurrentBatchCompleted,
               !practiceWords.isEmpty,
-              currentWordIndex == practiceWords.count - 1,
-              let wordbookID = selectedWordbookID else {
+                            currentWordIndex == practiceWords.count - 1 else {
             return
         }
 
         studySessionStore.markBatchCompleted(
-            wordbookID: wordbookID,
+            studyListID: defaultStudyListID,
             batchStart: currentBatchStartOffset,
             batchSize: practiceWords.count
         )

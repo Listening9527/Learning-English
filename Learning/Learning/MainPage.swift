@@ -14,12 +14,11 @@ struct MainPage: View {
     @State private var selectedTab: MainTab = Self.defaultTab
     @StateObject private var dashboardStore = DashboardStore()
     @StateObject private var preferencesStore = PreferencesStore()
-    @StateObject private var wordbookStore = WordbookStore()
     @StateObject private var scorer = PronunciationScorer()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            HomePage(dashboardStore: dashboardStore, wordbookStore: wordbookStore, scorer: scorer)
+            HomePage(dashboardStore: dashboardStore, scorer: scorer)
             .tabItem {
                 Label(Self.tabTitles[0], systemImage: "house.fill")
             }
@@ -34,7 +33,6 @@ struct MainPage: View {
             ProfilePage(
                 preferencesStore: preferencesStore,
                 dashboardStore: dashboardStore,
-                wordbookStore: wordbookStore,
                 scorer: scorer
             )
             .tabItem {

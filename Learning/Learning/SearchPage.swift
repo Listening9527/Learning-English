@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SearchPage: View {
     @ObservedObject var dashboardStore: DashboardStore
-    @ObservedObject var wordbookStore: WordbookStore
 
     @State private var query = ""
     @State private var results: [RecentWordSummary] = []
@@ -39,8 +38,7 @@ struct SearchPage: View {
                         NavigationLink {
                             WordDetailPage(
                                 word: word,
-                                dashboardStore: dashboardStore,
-                                wordbookStore: wordbookStore
+                                dashboardStore: dashboardStore
                             )
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
@@ -136,7 +134,6 @@ struct SearchPage: View {
 
     private func loadInitialData() async {
         await refreshSearchHistory()
-        await wordbookStore.reload()
     }
 
     private func refreshSearchHistory() async {

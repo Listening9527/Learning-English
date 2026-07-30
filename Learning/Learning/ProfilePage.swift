@@ -3,7 +3,6 @@ import SwiftUI
 struct ProfilePage: View {
     @ObservedObject var preferencesStore: PreferencesStore
     @ObservedObject var dashboardStore: DashboardStore
-    @ObservedObject var wordbookStore: WordbookStore
     @ObservedObject var scorer: PronunciationScorer
 
     var body: some View {
@@ -29,11 +28,7 @@ struct ProfilePage: View {
 
                 Section("更多") {
                     NavigationLink("搜索") {
-                        SearchPage(dashboardStore: dashboardStore, wordbookStore: wordbookStore)
-                    }
-
-                    NavigationLink("生词本") {
-                        WordbookPage()
+                        SearchPage(dashboardStore: dashboardStore)
                     }
 
                     NavigationLink("设置") {

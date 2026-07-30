@@ -10,7 +10,7 @@ enum StudyMode: String {
 @MainActor
 final class StudySessionStore: ObservableObject {
     private let defaults: UserDefaults
-    private let wordbookNextBatchOffsetsKey = "learning.wordbookNextBatchOffsets"
+    private let studyListNextBatchOffsetsKey = "learning.studyListNextBatchOffsets"
 
     @Published private(set) var cachedWordCount: Int = 0
     @Published private(set) var cachedCurrentIndex: Int = 0
@@ -30,31 +30,31 @@ final class StudySessionStore: ObservableObject {
         // Keep cached progress unchanged for retry flows.
     }
 
-    func nextBatchOffset(for wordbookID: Int64) -> Int {
-        max(0, storedWordbookNextBatchOffsets()[storageKey(for: wordbookID)] ?? 0)
+    func nextBatchOffset(for studyListID: Int64) -> Int {
+        max(0, storedStudyListNextBatchOffsets()[storageKey(for: studyListID)] ?? 0)
     }
 
-    func markBatchCompleted(wordbookID: Int64, batchStart: Int, batchSize: Int) {
-        var offsets = storedWordbookNextBatchOffsets()
-        offsets[storageKey(for: wordbookID)] = max(0, batchStart + max(batchSize, 1))
-        persistWordbookNextBatchOffsets(offsets)
+    func markBatchCompleted(studyListID: Int64, batchStart: Int, batchSize: Int) {
+        var offsets = storedStudyListNextBatchOffsets()
+        offsets[storageKey(for: studyListID)] = max(0, batchStart + max(batchSize, 1))
+        persistStudyListNextBatchOffsets(offsets)
     }
 
-    func resetBatchProgress(for wordbookID: Int64) {
-        var offsets = storedWordbookNextBatchOffsets()
-        offsets[storageKey(for: wordbookID)] = 0
-        persistWordbookNextBatchOffsets(offsets)
+    func resetBatchProgress(for studyListID: Int64) {
+        var offsets = storedStudyListNextBatchOffsets()
+        offsets[storageKey(for: studyListID)] = 0
+        persistStudyListNextBatchOffsets(offsets)
     }
 
-    private func storageKey(for wordbookID: Int64) -> String {
-        String(wordbookID)
+    private func storageKey(for studyListID: Int64) -> String {
+        String(studyListID)
     }
 
-    private func storedWordbookNextBatchOffsets() -> [String: Int] {
-        defaults.dictionary(forKey: wordbookNextBatchOffsetsKey) as? [String: Int] ?? [:]
+    private func storedStudyListNextBatchOffsets() -> [String: Int] {
+        defaults.dictionary(forKey: studyListNextBatchOffsetsKey) as? [String: Int] ?? [:]
     }
 
-    private func persistWordbookNextBatchOffsets(_ offsets: [String: Int]) {
-        defaults.set(offsets, forKey: wordbookNextBatchOffsetsKey)
+    private func persistStudyListNextBatchOffsets(_ offsets: [String: Int]) {
+        defaults.set(offsets, forKey: studyListNextBatchOffsetsKey)
     }
 }
