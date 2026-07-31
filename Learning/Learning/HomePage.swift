@@ -328,6 +328,10 @@ struct HomePage: View {
 struct IPAStudyPage: View {
     @ObservedObject var scorer: PronunciationScorer
     @State private var selectedAccent: AccentOption = .american
+    @State private var quizIndex = 0
+    @State private var selectedChoice = ""
+    @State private var didSubmitQuizAnswer = false
+    @State private var correctAnswerCount = 0
 
     var body: some View {
         ScrollView {
@@ -368,6 +372,12 @@ struct IPAStudyPage: View {
                 phonemeSection(title: "单元音（12）", items: monophthongs)
                 phonemeSection(title: "双元音（8）", items: diphthongs)
                 phonemeSection(title: "辅音（24）", items: consonants)
+                spellingPatternSection(title: "元音拼写规律（核心）", items: vowelSpellingPatterns)
+                spellingPatternSection(title: "双元音拼写规律（核心）", items: diphthongSpellingPatterns)
+                spellingPatternSection(title: "辅音拼写规律（核心）", items: consonantSpellingPatterns)
+                endingRulesSection
+                multiSoundReminderSection
+                ipaQuizSection
 
                 Text(scorer.statusMessage)
                     .font(.footnote)
@@ -413,6 +423,228 @@ struct IPAStudyPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.gray.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func spellingPatternSection(title: String, items: [IPASpellingPatternItem]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+
+            ForEach(items) { item in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(item.symbol)
+                            .font(.headline.monospaced())
+                        Text(item.graphemes)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+
+                    Text(item.examples)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        Button("播放") {
+                            scorer.speak(word: item.playbackText, slowMode: false, accent: selectedAccent)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("慢速") {
+                            scorer.speak(word: item.playbackText, slowMode: true, accent: selectedAccent)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var endingRulesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("词尾发音规则（高频）")
+                .font(.headline)
+
+            ForEach(endingRules) { rule in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(rule.pattern)：\(rule.pronunciation)")
+                        .font(.subheadline.weight(.semibold))
+                    Text(rule.rule)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(rule.examples)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        Button("播放") {
+                            scorer.speak(word: rule.playbackText, slowMode: false, accent: selectedAccent)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("慢速") {
+                            scorer.speak(word: rule.playbackText, slowMode: true, accent: selectedAccent)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.green.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var multiSoundReminderSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("同拼写多发音提醒")
+                .font(.headline)
+
+            ForEach(multiSoundSpellings) { item in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(item.spelling) -> \(item.mappings)")
+                        .font(.subheadline.weight(.semibold))
+                    Text(item.examples)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.purple.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var vowelSpellingPatterns: [IPASpellingPatternItem] {
+        IPASeedContent.vowelSpellingPatterns
+    }
+
+    private var diphthongSpellingPatterns: [IPASpellingPatternItem] {
+        IPASeedContent.diphthongSpellingPatterns
+    }
+
+    private var consonantSpellingPatterns: [IPASpellingPatternItem] {
+        IPASeedContent.consonantSpellingPatterns
+    }
+
+    private var endingRules: [IPAEndingRuleItem] {
+        IPASeedContent.endingRules
+    }
+
+    private var multiSoundSpellings: [IPAMultiSoundItem] {
+        IPASeedContent.multiSoundSpellings
+    }
+
+    private var quizItems: [IPAQuizItem] {
+        IPASeedContent.quizItems
+    }
+
+    private var currentQuizItem: IPAQuizItem {
+        quizItems[quizIndex]
+    }
+
+    private var isLastQuizQuestion: Bool {
+        quizIndex == quizItems.count - 1
+    }
+
+    private var ipaQuizSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("音标小测")
+                .font(.headline)
+
+            Text("第 \(quizIndex + 1) / \(quizItems.count) 题")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Text(currentQuizItem.prompt)
+                .font(.subheadline)
+
+            ForEach(currentQuizItem.choices, id: \.self) { choice in
+                Button {
+                    guard !didSubmitQuizAnswer else { return }
+                    selectedChoice = choice
+                } label: {
+                    HStack {
+                        Image(systemName: selectedChoice == choice ? "largecircle.fill.circle" : "circle")
+                            .foregroundStyle(selectedChoice == choice ? .blue : .secondary)
+                        Text(choice)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 2)
+            }
+
+            if didSubmitQuizAnswer {
+                Text(currentQuizItem.analysis)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                Button("提交") {
+                    submitQuizAnswer()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedChoice.isEmpty || didSubmitQuizAnswer)
+
+                if didSubmitQuizAnswer {
+                    if isLastQuizQuestion {
+                        Button("重新开始") {
+                            resetQuiz()
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button("下一题") {
+                            goToNextQuizItem()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+
+            if didSubmitQuizAnswer && isLastQuizQuestion {
+                Text("本轮得分：\(correctAnswerCount) / \(quizItems.count)")
+                    .font(.subheadline.weight(.semibold))
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.blue.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func submitQuizAnswer() {
+        guard !didSubmitQuizAnswer else { return }
+        didSubmitQuizAnswer = true
+        if selectedChoice == currentQuizItem.correctAnswer {
+            correctAnswerCount += 1
+        }
+    }
+
+    private func goToNextQuizItem() {
+        guard !isLastQuizQuestion else { return }
+        quizIndex += 1
+        selectedChoice = ""
+        didSubmitQuizAnswer = false
+    }
+
+    private func resetQuiz() {
+        quizIndex = 0
+        selectedChoice = ""
+        didSubmitQuizAnswer = false
+        correctAnswerCount = 0
     }
 
     private var monophthongs: [PhonemeItem] {
