@@ -18,8 +18,18 @@ struct RecentWordSummary: Identifiable, Equatable {
     let id: Int64
     let word: String
     let phonetic: String?
+    let syllableDivision: String? = nil
+    let frequency: Double? = nil
+    let wordRoot: String? = nil
     let partOfSpeech: String?
     let definition: String
+    let translation: String? = nil
+    let example1: String? = nil
+    let example1Translation: String? = nil
+    let example2: String? = nil
+    let example2Translation: String? = nil
+    let example3: String? = nil
+    let example3Translation: String? = nil
     let createdAt: String
 }
 

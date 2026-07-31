@@ -288,10 +288,30 @@ struct HomePage: View {
                                 }
                             }
 
+                            HStack(spacing: 8) {
+                                if let part = word.partOfSpeech, !part.isEmpty {
+                                    Text(part)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if let frequency = word.frequency {
+                                    Text(String(format: "频率 %.3f", frequency))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+
                             Text(word.definition)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
+
+                            if let translation = word.translation, !translation.isEmpty {
+                                Text(translation)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)

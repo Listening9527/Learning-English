@@ -110,7 +110,7 @@ final class DatabaseManagerPageQueryTests: XCTestCase {
             phonetic: "/ˌriːˈsɜːrfəs/",
             partOfSpeech: "verb",
             definition: "to appear again",
-            example: "The topic resurfaced in class."
+            example1: "The topic resurfaced in class."
         )
 
         let history = try database.fetchSearchHistory(limit: 10)

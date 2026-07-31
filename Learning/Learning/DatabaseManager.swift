@@ -216,13 +216,37 @@ final class DatabaseManager {
         }
 
         let names = Set(columns.map { $0.name })
+        let coreRequiredNames: Set<String> = [
+            "id",
+            "word",
+            "created_at",
+            "updated_at"
+        ]
+
+        // If core identity columns are missing, rebuild as a last resort.
+        if !coreRequiredNames.isSubset(of: names) {
+            execute("DROP TABLE IF EXISTS words;")
+            execute(wordsCreateStatement(tableName: "words"))
+            return
+        }
+
         let requiredNames: Set<String> = [
             "id",
             "word",
             "phonetic",
+            "syllable_division",
+            "frequency",
+            "word_root",
             "pos",
             "definition",
+            "translation",
             "example",
+            "example_1",
+            "example_1_translation",
+            "example_2",
+            "example_2_translation",
+            "example_3",
+            "example_3_translation",
             "audio_url",
             "type",
             "is_custom",
@@ -230,14 +254,43 @@ final class DatabaseManager {
             "updated_at"
         ]
 
-        let missingRequired = !requiredNames.isSubset(of: names)
         let hasLegacyMeaning = names.contains("meaning")
+        let missingRequired = !requiredNames.isSubset(of: names)
+
         guard missingRequired || hasLegacyMeaning else {
             return
         }
 
-        execute("DROP TABLE IF EXISTS words;")
-        execute(wordsCreateStatement(tableName: "words"))
+        addColumnIfMissing(tableName: "words", columnName: "syllable_division", definition: "TEXT")
+        addColumnIfMissing(tableName: "words", columnName: "frequency", definition: "REAL NOT NULL DEFAULT 0")
+        addColumnIfMissing(tableName: "words", columnName: "word_root", definition: "TEXT")
+        addColumnIfMissing(tableName: "words", columnName: "translation", definition: "TEXT")
+        addColumnIfMissing(tableName: "words", columnName: "example_1", definition: "TEXT")
+        addColumnIfMissing(tableName: "words", columnName: "example_1_translation", definition: "TEXT")
+        addColumnIfMissing(tableName: "words", columnName: "example_2", definition: "TEXT")
+        addColumnIfMissing(tableName: "words", columnName: "example_2_translation", definition: "TEXT")
+        addColumnIfMissing(tableName: "words", columnName: "example_3", definition: "TEXT")
+        addColumnIfMissing(tableName: "words", columnName: "example_3_translation", definition: "TEXT")
+
+        // Backfill legacy `meaning` into `definition` when needed.
+        if hasLegacyMeaning {
+            execute(
+                """
+                UPDATE words
+                SET definition = COALESCE(NULLIF(definition, ''), meaning)
+                WHERE COALESCE(definition, '') = '' AND COALESCE(meaning, '') <> '';
+                """
+            )
+        }
+
+        // Keep old single-example column in sync for older UI/query paths.
+        execute(
+            """
+            UPDATE words
+            SET example = COALESCE(NULLIF(example, ''), example_1)
+            WHERE COALESCE(example, '') = '' AND COALESCE(example_1, '') <> '';
+            """
+        )
     }
 
     private func migrateUserSettingsSchemaIfNeeded() {
@@ -362,9 +415,19 @@ final class DatabaseManager {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             word TEXT NOT NULL,
             phonetic TEXT,
+            syllable_division TEXT,
+            frequency REAL NOT NULL DEFAULT 0,
+            word_root TEXT,
             pos TEXT,
-            definition TEXT NOT NULL,
+            definition TEXT NOT NULL DEFAULT '',
+            translation TEXT,
             example TEXT,
+            example_1 TEXT,
+            example_1_translation TEXT,
+            example_2 TEXT,
+            example_2_translation TEXT,
+            example_3 TEXT,
+            example_3_translation TEXT,
             audio_url TEXT,
             type TEXT NOT NULL DEFAULT 'word' CHECK (type IN ('word', 'phrase', 'pattern')),
             is_custom INTEGER NOT NULL DEFAULT 0 CHECK (is_custom IN (0, 1)),
@@ -403,6 +466,275 @@ extension DatabaseManager {
         let partOfSpeech: String
         let definition: String
         let example: String
+    }
+
+    struct WordsMarkdownImportSummary {
+        let parsed: Int
+        let imported: Int
+        let updated: Int
+        let skipped: Int
+    }
+
+    private struct ParsedMarkdownWordRow {
+        let word: String
+        let phonetic: String
+        let syllableDivision: String
+        let frequency: Double
+        let wordRoot: String
+        let partOfSpeech: String
+        let definition: String
+        let translation: String
+        let example1: String
+        let example1Translation: String
+        let example2: String
+        let example2Translation: String
+        let example3: String
+        let example3Translation: String
+
+        var legacyExample: String {
+            let candidates = [example1, example2, example3]
+            return candidates.first { !$0.isEmpty } ?? ""
+        }
+    }
+
+    func importWordsFromMarkdown(
+        fileURL: URL,
+        replaceExisting: Bool = false,
+        isCustom: Bool = false
+    ) throws -> WordsMarkdownImportSummary {
+        initializeDatabase()
+
+        let content = try String(contentsOf: fileURL, encoding: .utf8)
+        let rows = parseWordsMarkdownRows(content)
+
+        var imported = 0
+        var updated = 0
+        var skipped = 0
+
+        try executeThrowing("BEGIN TRANSACTION;")
+        do {
+            for row in rows {
+                if let existingID = try fetchExistingWordID(for: row) {
+                    if replaceExisting {
+                        try updateWordRow(id: existingID, row: row, isCustom: isCustom)
+                        updated += 1
+                    } else {
+                        skipped += 1
+                    }
+                } else {
+                    try insertWordRow(row, isCustom: isCustom)
+                    imported += 1
+                }
+            }
+            try executeThrowing("COMMIT;")
+        } catch {
+            try? executeThrowing("ROLLBACK;")
+            throw error
+        }
+
+        return WordsMarkdownImportSummary(
+            parsed: rows.count,
+            imported: imported,
+            updated: updated,
+            skipped: skipped
+        )
+    }
+
+    private func parseWordsMarkdownRows(_ content: String) -> [ParsedMarkdownWordRow] {
+        content
+            .components(separatedBy: .newlines)
+            .compactMap(parseMarkdownWordRow)
+    }
+
+    private func parseMarkdownWordRow(_ rawLine: String) -> ParsedMarkdownWordRow? {
+        let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard line.hasPrefix("|") else {
+            return nil
+        }
+
+        let cells = line
+            .trimmingCharacters(in: CharacterSet(charactersIn: "|"))
+            .components(separatedBy: "|")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+        guard cells.count >= 14 else {
+            return nil
+        }
+        guard cells[0] != "单词", cells[0] != "Word" else {
+            return nil
+        }
+
+        let isSeparator = cells.allSatisfy { cell in
+            let normalized = cell
+                .replacingOccurrences(of: ":", with: "")
+                .replacingOccurrences(of: "-", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return normalized.isEmpty
+        }
+        guard !isSeparator else {
+            return nil
+        }
+
+        let word = cells[0]
+        guard !word.isEmpty else {
+            return nil
+        }
+
+        let frequencyValue = Double(cells[3]) ?? 0
+
+        return ParsedMarkdownWordRow(
+            word: word,
+            phonetic: cells[1],
+            syllableDivision: cells[2],
+            frequency: max(0, frequencyValue),
+            wordRoot: cells[4],
+            partOfSpeech: cells[5],
+            definition: cells[6],
+            translation: cells[7],
+            example1: cells[8],
+            example1Translation: cells[9],
+            example2: cells[10],
+            example2Translation: cells[11],
+            example3: cells[12],
+            example3Translation: cells[13]
+        )
+    }
+
+    private func fetchExistingWordID(for row: ParsedMarkdownWordRow) throws -> Int64? {
+        let sql =
+            """
+            SELECT id
+            FROM words
+            WHERE word = ?
+              AND COALESCE(pos, '') = COALESCE(?, '')
+              AND COALESCE(definition, '') = COALESCE(?, '')
+              AND COALESCE(translation, '') = COALESCE(?, '')
+            ORDER BY id ASC
+            LIMIT 1;
+            """
+
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        try bindText(row.word, to: statement, index: 1)
+        try bindText(row.partOfSpeech, to: statement, index: 2)
+        try bindText(row.definition, to: statement, index: 3)
+        try bindText(row.translation, to: statement, index: 4)
+
+        let result = sqlite3_step(statement)
+        if result == SQLITE_ROW {
+            return sqlite3_column_int64(statement, 0)
+        }
+        if result == SQLITE_DONE {
+            return nil
+        }
+
+        throw databaseError(message: "Failed to query existing word")
+    }
+
+    private func insertWordRow(_ row: ParsedMarkdownWordRow, isCustom: Bool) throws {
+        let sql =
+            """
+            INSERT INTO words (
+                word, phonetic, syllable_division, frequency, word_root, pos,
+                definition, translation, example,
+                example_1, example_1_translation,
+                example_2, example_2_translation,
+                example_3, example_3_translation,
+                type, is_custom, created_at, updated_at
+            )
+            VALUES (
+                ?, ?, ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?,
+                ?, ?,
+                ?, ?,
+                'word', ?, datetime('now'), datetime('now')
+            );
+            """
+
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        try bindText(row.word, to: statement, index: 1)
+        try bindText(row.phonetic, to: statement, index: 2)
+        try bindText(row.syllableDivision, to: statement, index: 3)
+        guard sqlite3_bind_double(statement, 4, row.frequency) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind frequency")
+        }
+        try bindText(row.wordRoot, to: statement, index: 5)
+        try bindText(row.partOfSpeech, to: statement, index: 6)
+        try bindText(row.definition, to: statement, index: 7)
+        try bindText(row.translation, to: statement, index: 8)
+        try bindText(row.legacyExample, to: statement, index: 9)
+        try bindText(row.example1, to: statement, index: 10)
+        try bindText(row.example1Translation, to: statement, index: 11)
+        try bindText(row.example2, to: statement, index: 12)
+        try bindText(row.example2Translation, to: statement, index: 13)
+        try bindText(row.example3, to: statement, index: 14)
+        try bindText(row.example3Translation, to: statement, index: 15)
+        guard sqlite3_bind_int(statement, 16, isCustom ? 1 : 0) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind custom flag")
+        }
+
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw databaseError(message: "Failed to insert markdown word row")
+        }
+    }
+
+    private func updateWordRow(id: Int64, row: ParsedMarkdownWordRow, isCustom: Bool) throws {
+        let sql =
+            """
+            UPDATE words
+            SET phonetic = ?,
+                syllable_division = ?,
+                frequency = ?,
+                word_root = ?,
+                pos = ?,
+                definition = ?,
+                translation = ?,
+                example = ?,
+                example_1 = ?,
+                example_1_translation = ?,
+                example_2 = ?,
+                example_2_translation = ?,
+                example_3 = ?,
+                example_3_translation = ?,
+                type = 'word',
+                is_custom = ?,
+                updated_at = datetime('now')
+            WHERE id = ?;
+            """
+
+        let statement = try prepareStatement(sql)
+        defer { sqlite3_finalize(statement) }
+
+        try bindText(row.phonetic, to: statement, index: 1)
+        try bindText(row.syllableDivision, to: statement, index: 2)
+        guard sqlite3_bind_double(statement, 3, row.frequency) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind frequency")
+        }
+        try bindText(row.wordRoot, to: statement, index: 4)
+        try bindText(row.partOfSpeech, to: statement, index: 5)
+        try bindText(row.definition, to: statement, index: 6)
+        try bindText(row.translation, to: statement, index: 7)
+        try bindText(row.legacyExample, to: statement, index: 8)
+        try bindText(row.example1, to: statement, index: 9)
+        try bindText(row.example1Translation, to: statement, index: 10)
+        try bindText(row.example2, to: statement, index: 11)
+        try bindText(row.example2Translation, to: statement, index: 12)
+        try bindText(row.example3, to: statement, index: 13)
+        try bindText(row.example3Translation, to: statement, index: 14)
+        guard sqlite3_bind_int(statement, 15, isCustom ? 1 : 0) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind custom flag")
+        }
+        guard sqlite3_bind_int64(statement, 16, id) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind row id")
+        }
+
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw databaseError(message: "Failed to update markdown word row")
+        }
     }
 
     func fetchSearchHistory(limit: Int) throws -> [String] {
@@ -523,13 +855,16 @@ extension DatabaseManager {
 
         let sql =
             """
-            SELECT id, word, phonetic, pos, definition, created_at
+                        SELECT id, word, phonetic, syllable_division, frequency, word_root, pos, definition, translation,
+                                     example_1, example_1_translation, example_2, example_2_translation, example_3, example_3_translation,
+                                     created_at
             FROM words
             WHERE COALESCE(pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
               AND word <> '\(legacyBackfillPlaceholderWord)'
               AND (
                 word LIKE ? COLLATE NOCASE
                 OR definition LIKE ? COLLATE NOCASE
+                                OR translation LIKE ? COLLATE NOCASE
               )
             ORDER BY created_at DESC, id DESC
             LIMIT 30;
@@ -541,6 +876,7 @@ extension DatabaseManager {
         let pattern = "%\(normalizedQuery)%"
         try bindText(pattern, to: statement, index: 1)
         try bindText(pattern, to: statement, index: 2)
+        try bindText(pattern, to: statement, index: 3)
 
         var words: [RecentWordSummary] = []
         while sqlite3_step(statement) == SQLITE_ROW {
@@ -549,9 +885,19 @@ extension DatabaseManager {
                     id: sqlite3_column_int64(statement, 0),
                     word: stringValue(from: statement, index: 1) ?? "",
                     phonetic: stringValue(from: statement, index: 2),
-                    partOfSpeech: stringValue(from: statement, index: 3),
-                    definition: stringValue(from: statement, index: 4) ?? "",
-                    createdAt: stringValue(from: statement, index: 5) ?? ""
+                    syllableDivision: stringValue(from: statement, index: 3),
+                    frequency: sqlite3_column_type(statement, 4) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 4),
+                    wordRoot: stringValue(from: statement, index: 5),
+                    partOfSpeech: stringValue(from: statement, index: 6),
+                    definition: stringValue(from: statement, index: 7) ?? "",
+                    translation: stringValue(from: statement, index: 8),
+                    example1: stringValue(from: statement, index: 9),
+                    example1Translation: stringValue(from: statement, index: 10),
+                    example2: stringValue(from: statement, index: 11),
+                    example2Translation: stringValue(from: statement, index: 12),
+                    example3: stringValue(from: statement, index: 13),
+                    example3Translation: stringValue(from: statement, index: 14),
+                    createdAt: stringValue(from: statement, index: 15) ?? ""
                 )
             )
         }
@@ -568,9 +914,18 @@ extension DatabaseManager {
     func createCustomWord(
         word: String,
         phonetic: String,
+        syllableDivision: String = "",
+        frequency: Double = 0,
+        wordRoot: String = "",
         partOfSpeech: String,
         definition: String,
-        example: String
+        translation: String = "",
+        example1: String = "",
+        example1Translation: String = "",
+        example2: String = "",
+        example2Translation: String = "",
+        example3: String = "",
+        example3Translation: String = ""
     ) throws -> Int64 {
         initializeDatabase()
 
@@ -583,20 +938,52 @@ extension DatabaseManager {
         let timestampValue = timestamp(for: Date())
         let sql =
             """
-            INSERT INTO words (word, phonetic, pos, definition, example, type, is_custom, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'word', 1, ?, ?);
+            INSERT INTO words (
+                word, phonetic, syllable_division, frequency, word_root, pos,
+                definition, translation, example, example_1, example_1_translation,
+                example_2, example_2_translation, example_3, example_3_translation,
+                type, is_custom, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'word', 1, ?, ?);
             """
 
         let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
+        let trimmedPhonetic = phonetic.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSyllableDivision = syllableDivision.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedWordRoot = wordRoot.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPart = partOfSpeech.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTranslation = translation.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedExample1 = example1.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedExample1Translation = example1Translation.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedExample2 = example2.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedExample2Translation = example2Translation.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedExample3 = example3.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedExample3Translation = example3Translation.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let fallbackExample = [trimmedExample1, trimmedExample2, trimmedExample3].first { !$0.isEmpty } ?? ""
+        let normalizedFrequency = max(0, frequency)
+
         try bindText(trimmedWord, to: statement, index: 1)
-        try bindText(phonetic.trimmingCharacters(in: .whitespacesAndNewlines), to: statement, index: 2)
-        try bindText(partOfSpeech.trimmingCharacters(in: .whitespacesAndNewlines), to: statement, index: 3)
-        try bindText(trimmedDefinition, to: statement, index: 4)
-        try bindText(example.trimmingCharacters(in: .whitespacesAndNewlines), to: statement, index: 5)
-        try bindText(timestampValue, to: statement, index: 6)
-        try bindText(timestampValue, to: statement, index: 7)
+        try bindText(trimmedPhonetic, to: statement, index: 2)
+        try bindText(trimmedSyllableDivision, to: statement, index: 3)
+        guard sqlite3_bind_double(statement, 4, normalizedFrequency) == SQLITE_OK else {
+            throw databaseError(message: "Failed to bind frequency")
+        }
+        try bindText(trimmedWordRoot, to: statement, index: 5)
+        try bindText(trimmedPart, to: statement, index: 6)
+        try bindText(trimmedDefinition, to: statement, index: 7)
+        try bindText(trimmedTranslation, to: statement, index: 8)
+        try bindText(fallbackExample, to: statement, index: 9)
+        try bindText(trimmedExample1, to: statement, index: 10)
+        try bindText(trimmedExample1Translation, to: statement, index: 11)
+        try bindText(trimmedExample2, to: statement, index: 12)
+        try bindText(trimmedExample2Translation, to: statement, index: 13)
+        try bindText(trimmedExample3, to: statement, index: 14)
+        try bindText(trimmedExample3Translation, to: statement, index: 15)
+        try bindText(timestampValue, to: statement, index: 16)
+        try bindText(timestampValue, to: statement, index: 17)
 
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw databaseError(message: "Failed to create custom word")
@@ -681,7 +1068,9 @@ extension DatabaseManager {
         let placeholders = Array(repeating: "?", count: normalizedWords.count).joined(separator: ",")
         let sql =
             """
-            SELECT id, word, phonetic, pos, definition, created_at
+            SELECT id, word, phonetic, syllable_division, frequency, word_root, pos, definition, translation,
+                   example_1, example_1_translation, example_2, example_2_translation, example_3, example_3_translation,
+                   created_at
             FROM words
             WHERE LOWER(word) IN (
                 \(placeholders)
@@ -705,9 +1094,19 @@ extension DatabaseManager {
                     id: sqlite3_column_int64(statement, 0),
                     word: stringValue(from: statement, index: 1) ?? "",
                     phonetic: stringValue(from: statement, index: 2),
-                    partOfSpeech: stringValue(from: statement, index: 3),
-                    definition: stringValue(from: statement, index: 4) ?? "",
-                    createdAt: stringValue(from: statement, index: 5) ?? ""
+                    syllableDivision: stringValue(from: statement, index: 3),
+                    frequency: sqlite3_column_type(statement, 4) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 4),
+                    wordRoot: stringValue(from: statement, index: 5),
+                    partOfSpeech: stringValue(from: statement, index: 6),
+                    definition: stringValue(from: statement, index: 7) ?? "",
+                    translation: stringValue(from: statement, index: 8),
+                    example1: stringValue(from: statement, index: 9),
+                    example1Translation: stringValue(from: statement, index: 10),
+                    example2: stringValue(from: statement, index: 11),
+                    example2Translation: stringValue(from: statement, index: 12),
+                    example3: stringValue(from: statement, index: 13),
+                    example3Translation: stringValue(from: statement, index: 14),
+                    createdAt: stringValue(from: statement, index: 15) ?? ""
                 )
             )
         }
@@ -761,8 +1160,11 @@ extension DatabaseManager {
 
         let sql =
             """
-            INSERT INTO words (word, phonetic, pos, definition, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?);
+            INSERT INTO words (
+                word, phonetic, syllable_division, frequency, word_root, pos,
+                definition, translation, created_at, updated_at
+            )
+            VALUES (?, ?, '', 0, '', ?, ?, '', ?, ?);
             """
 
         var statement = try prepareStatement(sql)
@@ -830,8 +1232,12 @@ extension DatabaseManager {
 
         let sql =
             """
-            INSERT OR IGNORE INTO words (word, phonetic, pos, definition, example, type, is_custom, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'word', 1, ?, ?);
+            INSERT OR IGNORE INTO words (
+                word, phonetic, syllable_division, frequency, word_root, pos,
+                definition, translation, example, example_1,
+                type, is_custom, created_at, updated_at
+            )
+            VALUES (?, ?, '', 0, '', ?, ?, '', ?, ?, 'word', 1, ?, ?);
             """
 
         try executeThrowing("BEGIN TRANSACTION;")
@@ -851,8 +1257,9 @@ extension DatabaseManager {
             try bindText(sample.partOfSpeech, to: statement, index: 3)
             try bindText(sample.definition, to: statement, index: 4)
             try bindText(sample.example, to: statement, index: 5)
-            try bindText(createdAt, to: statement, index: 6)
+            try bindText(sample.example, to: statement, index: 6)
             try bindText(createdAt, to: statement, index: 7)
+            try bindText(createdAt, to: statement, index: 8)
 
             let result = sqlite3_step(statement)
             guard result == SQLITE_DONE else {
@@ -944,7 +1351,9 @@ extension DatabaseManager {
 
         let sql =
             """
-            SELECT id, word, phonetic, pos, definition, created_at
+            SELECT id, word, phonetic, syllable_division, frequency, word_root, pos, definition, translation,
+                   example_1, example_1_translation, example_2, example_2_translation, example_3, example_3_translation,
+                   created_at
             FROM words
                         WHERE COALESCE(pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
                             AND word <> '\(legacyBackfillPlaceholderWord)'
@@ -964,17 +1373,37 @@ extension DatabaseManager {
             let id = sqlite3_column_int64(statement, 0)
             let word = stringValue(from: statement, index: 1) ?? ""
             let phonetic = stringValue(from: statement, index: 2)
-            let partOfSpeech = stringValue(from: statement, index: 3)
-            let definition = stringValue(from: statement, index: 4) ?? ""
-            let createdAt = stringValue(from: statement, index: 5) ?? ""
+            let syllableDivision = stringValue(from: statement, index: 3)
+            let frequency = sqlite3_column_type(statement, 4) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 4)
+            let wordRoot = stringValue(from: statement, index: 5)
+            let partOfSpeech = stringValue(from: statement, index: 6)
+            let definition = stringValue(from: statement, index: 7) ?? ""
+            let translation = stringValue(from: statement, index: 8)
+            let example1 = stringValue(from: statement, index: 9)
+            let example1Translation = stringValue(from: statement, index: 10)
+            let example2 = stringValue(from: statement, index: 11)
+            let example2Translation = stringValue(from: statement, index: 12)
+            let example3 = stringValue(from: statement, index: 13)
+            let example3Translation = stringValue(from: statement, index: 14)
+            let createdAt = stringValue(from: statement, index: 15) ?? ""
 
             words.append(
                 RecentWordSummary(
                     id: id,
                     word: word,
                     phonetic: phonetic,
+                    syllableDivision: syllableDivision,
+                    frequency: frequency,
+                    wordRoot: wordRoot,
                     partOfSpeech: partOfSpeech,
                     definition: definition,
+                    translation: translation,
+                    example1: example1,
+                    example1Translation: example1Translation,
+                    example2: example2,
+                    example2Translation: example2Translation,
+                    example3: example3,
+                    example3Translation: example3Translation,
                     createdAt: createdAt
                 )
             )

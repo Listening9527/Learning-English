@@ -32,7 +32,7 @@ struct ProfilePage: View {
                     }
 
                     NavigationLink("设置") {
-                        SettingsPage(preferencesStore: preferencesStore, scorer: scorer)
+                        SettingsPage(preferencesStore: preferencesStore, dashboardStore: dashboardStore, scorer: scorer)
                     }
                 }
             }

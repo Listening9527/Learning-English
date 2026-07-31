@@ -9,9 +9,18 @@ struct SearchPage: View {
     @State private var isShowingCreateSheet = false
     @State private var createWord = ""
     @State private var createPhonetic = ""
+    @State private var createSyllableDivision = ""
+    @State private var createFrequency = ""
+    @State private var createWordRoot = ""
     @State private var createPartOfSpeech = ""
     @State private var createDefinition = ""
-    @State private var createExample = ""
+    @State private var createTranslation = ""
+    @State private var createExample1 = ""
+    @State private var createExample1Translation = ""
+    @State private var createExample2 = ""
+    @State private var createExample2Translation = ""
+    @State private var createExample3 = ""
+    @State private var createExample3Translation = ""
     @State private var errorMessage: String?
 
     var body: some View {
@@ -52,10 +61,30 @@ struct SearchPage: View {
                                     }
                                 }
 
+                                HStack(spacing: 8) {
+                                    if let part = word.partOfSpeech, !part.isEmpty {
+                                        Text(part)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if let frequency = word.frequency {
+                                        Text(String(format: "频率 %.3f", frequency))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
                                 Text(word.definition)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
+
+                                if let translation = word.translation, !translation.isEmpty {
+                                    Text(translation)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
                             }
                             .padding(.vertical, 4)
                         }
@@ -98,9 +127,28 @@ struct SearchPage: View {
                 Section("新词") {
                     TextField("单词", text: $createWord)
                     TextField("音标", text: $createPhonetic)
+                    TextField("音节划分", text: $createSyllableDivision)
+                    TextField("出现频率（数字）", text: $createFrequency)
+                        .keyboardType(.decimalPad)
+                    TextField("词根", text: $createWordRoot)
                     TextField("词性", text: $createPartOfSpeech)
-                    TextField("释义", text: $createDefinition, axis: .vertical)
-                    TextField("例句", text: $createExample, axis: .vertical)
+                    TextField("英文释义", text: $createDefinition, axis: .vertical)
+                    TextField("中文翻译", text: $createTranslation, axis: .vertical)
+                }
+
+                Section("例句 1") {
+                    TextField("英文例句 1", text: $createExample1, axis: .vertical)
+                    TextField("例句翻译 1", text: $createExample1Translation, axis: .vertical)
+                }
+
+                Section("例句 2") {
+                    TextField("英文例句 2", text: $createExample2, axis: .vertical)
+                    TextField("例句翻译 2", text: $createExample2Translation, axis: .vertical)
+                }
+
+                Section("例句 3") {
+                    TextField("英文例句 3", text: $createExample3, axis: .vertical)
+                    TextField("例句翻译 3", text: $createExample3Translation, axis: .vertical)
                 }
             }
             .navigationTitle("添加自定义词")
@@ -155,19 +203,38 @@ struct SearchPage: View {
 
     private func createCustomWord() async {
         do {
+            let frequencyValue = Double(createFrequency.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
             _ = try DatabaseManager.shared.createCustomWord(
                 word: createWord,
                 phonetic: createPhonetic,
+                syllableDivision: createSyllableDivision,
+                frequency: frequencyValue,
+                wordRoot: createWordRoot,
                 partOfSpeech: createPartOfSpeech,
                 definition: createDefinition,
-                example: createExample
+                translation: createTranslation,
+                example1: createExample1,
+                example1Translation: createExample1Translation,
+                example2: createExample2,
+                example2Translation: createExample2Translation,
+                example3: createExample3,
+                example3Translation: createExample3Translation
             )
 
             createWord = ""
             createPhonetic = ""
+            createSyllableDivision = ""
+            createFrequency = ""
+            createWordRoot = ""
             createPartOfSpeech = ""
             createDefinition = ""
-            createExample = ""
+            createTranslation = ""
+            createExample1 = ""
+            createExample1Translation = ""
+            createExample2 = ""
+            createExample2Translation = ""
+            createExample3 = ""
+            createExample3Translation = ""
             isShowingCreateSheet = false
 
             await dashboardStore.refresh()
