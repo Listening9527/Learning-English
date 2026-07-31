@@ -407,12 +407,17 @@ struct IPAStudyPage: View {
                     Spacer()
 
                     Button("播放") {
-                        scorer.speak(word: item.playbackText, slowMode: false, accent: selectedAccent)
+                        scorer.speakPhoneme(symbol: item.symbol, slowMode: false, accent: selectedAccent)
                     }
                     .buttonStyle(.bordered)
 
                     Button("慢速") {
-                        scorer.speak(word: item.playbackText, slowMode: true, accent: selectedAccent)
+                        scorer.speakPhoneme(symbol: item.symbol, slowMode: true, accent: selectedAccent)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("对比") {
+                        scorer.speakPhonemeWithExample(symbol: item.symbol, exampleWord: item.playbackText, accent: selectedAccent)
                     }
                     .buttonStyle(.bordered)
                 }
@@ -447,12 +452,17 @@ struct IPAStudyPage: View {
 
                     HStack(spacing: 8) {
                         Button("播放") {
-                            scorer.speak(word: item.playbackText, slowMode: false, accent: selectedAccent)
+                            scorer.speakPhoneme(symbol: item.symbol, slowMode: false, accent: selectedAccent)
                         }
                         .buttonStyle(.bordered)
 
                         Button("慢速") {
-                            scorer.speak(word: item.playbackText, slowMode: true, accent: selectedAccent)
+                            scorer.speakPhoneme(symbol: item.symbol, slowMode: true, accent: selectedAccent)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("对比") {
+                            scorer.speakPhonemeWithExample(symbol: item.symbol, exampleWord: item.playbackText, accent: selectedAccent)
                         }
                         .buttonStyle(.bordered)
                     }

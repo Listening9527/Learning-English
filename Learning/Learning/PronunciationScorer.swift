@@ -54,6 +54,68 @@ final class PronunciationScorer: ObservableObject {
         }
     }
 
+    func speakPhoneme(symbol: String, slowMode: Bool, accent: AccentOption) {
+        let normalizedSymbol = symbol
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "")
+            .replacingOccurrences(of: " ", with: "")
+
+        guard !normalizedSymbol.isEmpty else {
+            statusMessage = "音标为空，无法播放。"
+            return
+        }
+
+        let playbackPrompt = phonemePlaybackText(for: normalizedSymbol)
+        currentAccent = accent
+        guard prepareForSpeechPlayback() else { return }
+        let hasExactAccentVoice = hasInstalledVoice(for: accent)
+
+        let utterance = buildUtterance(for: playbackPrompt, style: slowMode ? .slow : .normal, accent: accent)
+        synthesizer.speak(utterance)
+
+        let modeText = slowMode ? "慢速" : "标准"
+        if hasExactAccentVoice {
+            statusMessage = "正在播放音标 \(symbol)（\(accent.title)\(modeText)）"
+        } else {
+            statusMessage = "未安装\(accent.title)语音资源，已回退并播放音标 \(symbol)"
+        }
+    }
+
+    func speakPhonemeWithExample(symbol: String, exampleWord: String, accent: AccentOption) {
+        let normalizedSymbol = symbol
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "")
+            .replacingOccurrences(of: " ", with: "")
+        let cleanedExample = normalizeWord(exampleWord)
+
+        guard !normalizedSymbol.isEmpty else {
+            statusMessage = "音标为空，无法播放。"
+            return
+        }
+        guard !cleanedExample.isEmpty else {
+            statusMessage = "示例词为空，无法对比播放。"
+            return
+        }
+
+        let phonemePrompt = phonemePlaybackText(for: normalizedSymbol)
+        currentAccent = accent
+        guard prepareForSpeechPlayback() else { return }
+        let hasExactAccentVoice = hasInstalledVoice(for: accent)
+
+        let phonemeUtterance = buildUtterance(for: phonemePrompt, style: .slow, accent: accent)
+        let exampleUtterance = buildUtterance(for: cleanedExample, style: .normal, accent: accent)
+        exampleUtterance.preUtteranceDelay = 0.20
+
+        synthesizer.speak(phonemeUtterance)
+        synthesizer.speak(exampleUtterance)
+
+        if hasExactAccentVoice {
+            statusMessage = "对比播放：音标 \(symbol) -> 示例 \(cleanedExample)"
+        } else {
+            statusMessage = "未安装\(accent.title)语音资源，已回退并进行对比播放"
+        }
+    }
+
     func speakTeachingSequence(word: String, accent: AccentOption) {
         let cleaned = normalizeWord(word)
         guard !cleaned.isEmpty else {
@@ -367,6 +429,56 @@ final class PronunciationScorer: ObservableObject {
         }
 
         return utterance
+    }
+
+    private func phonemePlaybackText(for symbol: String) -> String {
+        switch symbol {
+        case "i:", "iː": return "ee"
+        case "ɪ": return "ih"
+        case "e": return "eh"
+        case "æ": return "aeh"
+        case "ɑː", "ɑ": return "ah"
+        case "ɒ": return "o"
+        case "ɔː", "ɔ": return "aw"
+        case "ʊ": return "oo as in book"
+        case "uː", "u": return "oo"
+        case "ʌ": return "uh"
+        case "ɜː", "ɝː", "ɜ", "ɝ": return "er"
+        case "ə": return "uh"
+        case "eɪ": return "ay"
+        case "aɪ": return "eye"
+        case "ɔɪ": return "oy"
+        case "aʊ": return "ow"
+        case "əʊ", "oʊ": return "oh"
+        case "ɪə": return "ear"
+        case "eə": return "air"
+        case "ʊə": return "sure"
+        case "p": return "puh"
+        case "b": return "buh"
+        case "t": return "tuh"
+        case "d": return "duh"
+        case "k": return "kuh"
+        case "g": return "guh"
+        case "f": return "fff"
+        case "v": return "vvv"
+        case "θ": return "th in think"
+        case "ð": return "th in this"
+        case "s": return "sss"
+        case "z": return "zzz"
+        case "ʃ": return "sh"
+        case "ʒ": return "zh"
+        case "h": return "h"
+        case "m": return "mmm"
+        case "n": return "nnn"
+        case "ŋ": return "ng"
+        case "l": return "lll"
+        case "r": return "rrr"
+        case "j": return "y"
+        case "w": return "w"
+        case "tʃ": return "ch"
+        case "dʒ": return "j"
+        default: return symbol
+        }
     }
 
     private func hasInstalledVoice(for accent: AccentOption) -> Bool {
