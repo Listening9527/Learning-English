@@ -48,8 +48,7 @@ struct LegacyStudyContent: View {
     @State private var currentWordIndex: Int = 0
     @State private var useWrongWordsOnly: Bool = false
     @State private var showPracticeReport: Bool = false
-    @State private var showDictionaryLookup: Bool = false
-    @State private var dictionaryInitialTerm: String = ""
+    @State private var dictionaryLookupRequest: DictionaryLookupRequest?
     @State private var wordDetailsByWord: [String: RecentWordSummary] = [:]
     @State private var supplementalSummaries: [RecentWordSummary] = []
     @State private var definitionOptions: [String] = []
@@ -175,6 +174,7 @@ struct LegacyStudyContent: View {
                         recordingScoreButton
 
                         Toggle("慢速模式（更适合跟读）", isOn: $useSlowMode)
+                        Toggle("语音降噪增强（系统语音处理）", isOn: $scorer.enableVoiceProcessing)
                         Toggle("低分自动触发教学连播", isOn: $scorer.autoReplayLowScore)
 
                         Button("教学连播（标准 + 慢速）") {
@@ -289,9 +289,9 @@ struct LegacyStudyContent: View {
                     )
                 }
             }
-            .sheet(isPresented: $showDictionaryLookup) {
+            .sheet(item: $dictionaryLookupRequest) { request in
                 NavigationStack {
-                    DictionaryLookupPage(initialTerm: dictionaryInitialTerm)
+                    DictionaryLookupPage(initialTerm: request.term)
                 }
             }
             .alert("操作失败", isPresented: errorAlertBinding) {
@@ -582,13 +582,21 @@ struct LegacyStudyContent: View {
 
     private func presentDictionaryDefinition(for word: String) {
         let normalized = word.trimmingCharacters(in: .whitespacesAndNewlines)
-        dictionaryInitialTerm = normalized
-        showDictionaryLookup = true
+        guard !normalized.isEmpty else {
+            errorMessage = "当前没有可查询的单词。"
+            return
+        }
+        dictionaryLookupRequest = DictionaryLookupRequest(term: normalized)
     }
 
     private func dismissKeyboard() {
         focusedInput = nil
     }
+}
+
+private struct DictionaryLookupRequest: Identifiable {
+    let id = UUID()
+    let term: String
 }
 
 private struct DictionaryLookupPage: View {

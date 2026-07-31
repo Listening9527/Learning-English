@@ -10,6 +10,7 @@ final class PronunciationScorer: ObservableObject {
     @Published var statusMessage: String = ""
     @Published var isRecording: Bool = false
     @Published var autoReplayLowScore: Bool = true
+    @Published var enableVoiceProcessing: Bool = true
     @Published var latestScores: [String: Int] = [:]
     @Published var autoReplayThreshold: Int = 60 {
         didSet {
@@ -21,6 +22,7 @@ final class PronunciationScorer: ObservableObject {
     private lazy var audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private var autoStopRecordingTask: Task<Void, Never>?
     private var currentTargetWord: String = ""
     private var currentAccent: AccentOption = .american
     private let latestScoresStorageKey = "learning.latestScores"
@@ -167,7 +169,13 @@ final class PronunciationScorer: ObservableObject {
 
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers])
+            if enableVoiceProcessing {
+                // Prefer Apple's voice-processing path for better noise robustness.
+                try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker])
+            } else {
+                // Lightweight recognition path without system voice-processing enhancements.
+                try session.setCategory(.record, mode: .measurement, options: [.duckOthers])
+            }
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
             recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
@@ -178,6 +186,19 @@ final class PronunciationScorer: ObservableObject {
             recognitionRequest.shouldReportPartialResults = true
 
             let inputNode = audioEngine.inputNode
+            if enableVoiceProcessing {
+                do {
+                    try inputNode.setVoiceProcessingEnabled(true)
+                } catch {
+                    // Keep working even if specific hardware does not support voice processing.
+                }
+            } else {
+                do {
+                    try inputNode.setVoiceProcessingEnabled(false)
+                } catch {
+                    // Some audio routes do not expose this switch; continue without failing.
+                }
+            }
             let recordingFormat = inputNode.outputFormat(forBus: 0)
             inputNode.removeTap(onBus: 0)
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
@@ -189,6 +210,7 @@ final class PronunciationScorer: ObservableObject {
 
             isRecording = true
             statusMessage = "正在录音，请朗读：\(currentTargetWord)"
+            scheduleAutoStopRecording()
 
             recognitionTask = recognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
                 guard let self = self else { return }
@@ -217,6 +239,9 @@ final class PronunciationScorer: ObservableObject {
     }
 
     private func stopRecognitionPipeline() {
+        autoStopRecordingTask?.cancel()
+        autoStopRecordingTask = nil
+
         if audioEngine.isRunning {
             audioEngine.stop()
             audioEngine.inputNode.removeTap(onBus: 0)
@@ -229,6 +254,20 @@ final class PronunciationScorer: ObservableObject {
 
         isRecording = false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    private func scheduleAutoStopRecording() {
+        autoStopRecordingTask?.cancel()
+        autoStopRecordingTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+            } catch {
+                return
+            }
+
+            guard let self, self.isRecording else { return }
+            self.stopRecordingAndScore()
+        }
     }
 
     private func evaluateScore() {
