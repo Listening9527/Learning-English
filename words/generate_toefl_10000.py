@@ -216,7 +216,65 @@ def first_chinese_gloss(syn) -> str:
     return "；".join(lemmas[:4])
 
 
-def build_examples(word: str, pos_code: str):
+def cefr_tier_by_rank(rank: int) -> str:
+    if rank <= 3000:
+        return "B1"
+    if rank <= 7000:
+        return "B2"
+    return "C1"
+
+
+def _pick_variant(word: str, pos_code: str, rank: int, variants):
+    idx = (sum(ord(c) for c in word) + len(pos_code) + rank) % len(variants)
+    return variants[idx]
+
+
+def build_examples(word: str, pos_code: str, tier: str, rank: int):
+    pos_en = POS_EN.get(pos_code, POS_EN["u"])
+    pos_zh = POS_ZH.get(pos_code, POS_ZH["u"])
+
+    if tier == "B1":
+        v1 = [
+            (f"In the passage, '{word}' appears as a {pos_en}.", f"在文章中，“{word}”以{pos_zh}形式出现。"),
+            (f"The text uses '{word}' as a {pos_en} in a key sentence.", f"这篇文本在关键句中把“{word}”用作{pos_zh}。"),
+            (f"You can spot '{word}' in the reading as a {pos_en}.", f"你可以在阅读中识别出“{word}”这一{pos_zh}。"),
+        ]
+        v2 = [
+            (f"The lecturer uses '{word}' to explain one key idea.", f"讲者用“{word}”解释一个关键观点。"),
+            (f"In class, the speaker uses '{word}' to clarify the topic.", f"在课堂中，说话者用“{word}”来澄清主题。"),
+            (f"The instructor repeats '{word}' when introducing the point.", f"老师在引入观点时重复使用“{word}”。"),
+        ]
+        v3 = [
+            (f"Learning '{word}' helps with TOEFL reading and listening.", f"学习“{word}”有助于托福阅读和听力。"),
+            (f"If you know '{word}', TOEFL questions become easier to follow.", f"掌握“{word}”后，托福题目会更容易理解。"),
+            (f"Using '{word}' correctly improves basic TOEFL accuracy.", f"正确使用“{word}”可以提升托福基础准确率。"),
+        ]
+        ex1, ex1_zh = _pick_variant(word, pos_code, rank, v1)
+        ex2, ex2_zh = _pick_variant(word, pos_code, rank + 1, v2)
+        ex3, ex3_zh = _pick_variant(word, pos_code, rank + 2, v3)
+        return ex1, ex1_zh, ex2, ex2_zh, ex3, ex3_zh
+
+    if tier == "B2":
+        v1 = [
+            (f"In the reading passage, '{word}' is used to develop the main point.", f"在阅读文章中，“{word}”被用于展开核心论点。"),
+            (f"The passage employs '{word}' to support a key claim.", f"文章使用“{word}”来支持一个关键主张。"),
+            (f"The author includes '{word}' when extending the central argument.", f"作者在拓展核心论证时加入了“{word}”。"),
+        ]
+        v2 = [
+            (f"In the lecture, '{word}' helps connect evidence and conclusion.", f"在讲座中，“{word}”有助于连接证据与结论。"),
+            (f"During the lecture, '{word}' links examples to the final claim.", f"在讲座过程中，“{word}”把例子与最终结论连接起来。"),
+            (f"The speaker relies on '{word}' to organize supporting details.", f"说话者借助“{word}”来组织支撑细节。"),
+        ]
+        v3 = [
+            (f"Accurate use of '{word}' can improve clarity in TOEFL responses.", f"准确使用“{word}”可以提升托福作答的清晰度。"),
+            (f"Mastering '{word}' can make your TOEFL explanation more coherent.", f"掌握“{word}”能让你的托福解释更连贯。"),
+            (f"Careful use of '{word}' helps keep your TOEFL answer precise.", f"谨慎使用“{word}”有助于保持托福答案的精确性。"),
+        ]
+        ex1, ex1_zh = _pick_variant(word, pos_code, rank, v1)
+        ex2, ex2_zh = _pick_variant(word, pos_code, rank + 1, v2)
+        ex3, ex3_zh = _pick_variant(word, pos_code, rank + 2, v3)
+        return ex1, ex1_zh, ex2, ex2_zh, ex3, ex3_zh
+
     grammar_examples = {
         "det": (
             f"{word.title()} data set in the report supports the main hypothesis.",
@@ -295,15 +353,61 @@ def build_examples(word: str, pos_code: str):
     if pos_code in grammar_examples:
         return grammar_examples[pos_code]
 
+    lexical_examples = {
+        "n": (
+            f"The reading passage uses the noun form '{word}' in a key academic context.",
+            f"这篇阅读文章在关键学术语境中使用了名词形式“{word}”。",
+            f"In the lecture, the professor explains the role of '{word}' in the argument.",
+            f"在讲座中，教授解释了“{word}”在论证中的作用。",
+            f"Using '{word}' precisely can strengthen your TOEFL speaking response.",
+            f"准确使用“{word}”能增强你的托福口语作答。",
+        ),
+        "v": (
+            f"The passage includes the verb form '{word}' to describe an academic action.",
+            f"文章使用动词形式“{word}”来描述一种学术行为。",
+            f"In listening notes, identify why the speaker chooses '{word}' in that sentence.",
+            f"在听力笔记中，注意说话者为何在该句中选用“{word}”。",
+            f"Accurate control of verb forms like '{word}' improves TOEFL writing precision.",
+            f"准确掌握像“{word}”这样的动词形式能提升托福写作精确度。",
+        ),
+        "a": (
+            f"The author uses the adjective form '{word}' to qualify a central claim.",
+            f"作者使用形容词形式“{word}”来限定一个核心论点。",
+            f"In class discussion, students explain how '{word}' changes the tone of a sentence.",
+            f"在课堂讨论中，学生会说明“{word}”如何改变句子语气。",
+            f"Choosing adjectives like '{word}' appropriately can sharpen TOEFL arguments.",
+            f"恰当选择像“{word}”这样的形容词能让托福论证更有力度。",
+        ),
+        "r": (
+            f"The lecture uses the adverb form '{word}' to refine the statement.",
+            f"讲座中使用副词形式“{word}”来细化陈述。",
+            f"In reading analysis, note how '{word}' modifies the writer's stance.",
+            f"在阅读分析中，注意“{word}”如何修饰作者立场。",
+            f"Using adverbs like '{word}' can improve nuance in TOEFL speaking.",
+            f"在托福口语中使用像“{word}”这样的副词有助于表达细微差别。",
+        ),
+        "s": (
+            f"The passage uses the descriptive form '{word}' to add nuance.",
+            f"文章使用描述性形式“{word}”来增加语义层次。",
+            f"In passage review, explain what effect '{word}' creates for the reader.",
+            f"在篇章复盘时，说明“{word}”给读者带来了什么效果。",
+            f"Recognizing descriptive forms like '{word}' helps in TOEFL reading inference.",
+            f"识别像“{word}”这样的描述性形式有助于托福阅读推断题。",
+        ),
+    }
+
+    if pos_code in lexical_examples:
+        return lexical_examples[pos_code]
+
     pos_zh = POS_ZH.get(pos_code, POS_ZH["u"])
-    ex1 = f"The TOEFL reading passage uses '{word}' as a {POS_EN.get(pos_code, POS_EN['u'])}."
-    ex1_zh = f"这篇托福阅读文章把“{word}”当作{pos_zh}使用。"
+    ex1 = f"The TOEFL reading passage uses '{word}' in an academic context."
+    ex1_zh = f"这篇托福阅读文章在学术语境中使用了“{word}”。"
 
-    ex2 = f"In the lecture, the speaker uses '{word}' to support the central idea."
-    ex2_zh = f"在讲座中，说话者用“{word}”来支持核心观点。"
+    ex2 = f"In the lecture, the speaker uses '{word}' to support a key point."
+    ex2_zh = f"在讲座中，说话者用“{word}”来支持一个关键观点。"
 
-    ex3 = f"Using '{word}' correctly can improve your TOEFL writing score."
-    ex3_zh = f"正确使用“{word}”可以提升你的托福写作分数。"
+    ex3 = f"Using '{word}' correctly can improve accuracy in TOEFL responses."
+    ex3_zh = f"正确使用“{word}”可以提升托福作答的准确性。"
 
     return ex1, ex1_zh, ex2, ex2_zh, ex3, ex3_zh
 
@@ -386,7 +490,9 @@ def main():
             elif not zh_gloss:
                 zh_gloss = "高频英语词，常见于学术与日常语境。"
 
-            ex1, ex1_zh, ex2, ex2_zh, ex3, ex3_zh = build_examples(word, pos_code)
+            rank = len(rows) + 1
+            tier = cefr_tier_by_rank(rank)
+            ex1, ex1_zh, ex2, ex2_zh, ex3, ex3_zh = build_examples(word, pos_code, tier, rank)
 
             rows.append([
                 word,
