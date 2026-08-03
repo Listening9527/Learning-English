@@ -18,19 +18,55 @@ struct RecentWordSummary: Identifiable, Equatable {
     let id: Int64
     let word: String
     let phonetic: String?
-    let syllableDivision: String? = nil
-    let frequency: Double? = nil
-    let wordRoot: String? = nil
+    let syllableDivision: String?
+    let frequency: Double?
+    let wordRoot: String?
     let partOfSpeech: String?
     let definition: String
-    let translation: String? = nil
-    let example1: String? = nil
-    let example1Translation: String? = nil
-    let example2: String? = nil
-    let example2Translation: String? = nil
-    let example3: String? = nil
-    let example3Translation: String? = nil
+    let translation: String?
+    let example1: String?
+    let example1Translation: String?
+    let example2: String?
+    let example2Translation: String?
+    let example3: String?
+    let example3Translation: String?
     let createdAt: String
+
+    init(
+        id: Int64,
+        word: String,
+        phonetic: String?,
+        syllableDivision: String? = nil,
+        frequency: Double? = nil,
+        wordRoot: String? = nil,
+        partOfSpeech: String?,
+        definition: String,
+        translation: String? = nil,
+        example1: String? = nil,
+        example1Translation: String? = nil,
+        example2: String? = nil,
+        example2Translation: String? = nil,
+        example3: String? = nil,
+        example3Translation: String? = nil,
+        createdAt: String
+    ) {
+        self.id = id
+        self.word = word
+        self.phonetic = phonetic
+        self.syllableDivision = syllableDivision
+        self.frequency = frequency
+        self.wordRoot = wordRoot
+        self.partOfSpeech = partOfSpeech
+        self.definition = definition
+        self.translation = translation
+        self.example1 = example1
+        self.example1Translation = example1Translation
+        self.example2 = example2
+        self.example2Translation = example2Translation
+        self.example3 = example3
+        self.example3Translation = example3Translation
+        self.createdAt = createdAt
+    }
 }
 
 struct DashboardSummary: Equatable {

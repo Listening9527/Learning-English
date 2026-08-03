@@ -4,6 +4,7 @@ struct ProfilePage: View {
     @ObservedObject var preferencesStore: PreferencesStore
     @ObservedObject var dashboardStore: DashboardStore
     @ObservedObject var scorer: PronunciationScorer
+    @State private var showResetScoresConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -27,6 +28,20 @@ struct ProfilePage: View {
                 }
 
                 Section("更多") {
+                    NavigationLink("今日练习报告") {
+                        PracticeReportView(
+                            latestScores: scorer.latestScores,
+                            threshold: scorer.autoReplayThreshold,
+                            averageScoreText: scorer.averageScoreText,
+                            scoredWordCount: scorer.scoredWordCount,
+                            lowScoreWordCount: scorer.lowScoreWordCount
+                        )
+                    }
+
+                    Button("重置错题记录", role: .destructive) {
+                        showResetScoresConfirm = true
+                    }
+
                     NavigationLink("搜索") {
                         SearchPage(dashboardStore: dashboardStore)
                     }
@@ -39,6 +54,15 @@ struct ProfilePage: View {
             .navigationTitle("我的")
             .task {
                 await preferencesStore.reload()
+            }
+            .alert("重置错题记录", isPresented: $showResetScoresConfirm) {
+                Button("取消", role: .cancel) {
+                }
+                Button("确认重置", role: .destructive) {
+                    scorer.resetAllLatestScores()
+                }
+            } message: {
+                Text("将清空全部单词的得分与错题记录。")
             }
         }
     }

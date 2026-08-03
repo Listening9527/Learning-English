@@ -1167,7 +1167,7 @@ extension DatabaseManager {
             VALUES (?, ?, '', 0, '', ?, ?, '', ?, ?);
             """
 
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         try bindText(word, to: statement, index: 1)
@@ -1361,7 +1361,7 @@ extension DatabaseManager {
             LIMIT ?;
             """
 
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         guard sqlite3_bind_int(statement, 1, Int32(limit)) == SQLITE_OK else {
@@ -1455,7 +1455,7 @@ extension DatabaseManager {
             ORDER BY date_key ASC;
             """
 
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         try bindText(dateKey(for: monthStart), to: statement, index: 1)
@@ -1496,7 +1496,7 @@ extension DatabaseManager {
             VALUES (?, ?, 1, ?);
             """
 
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         guard sqlite3_bind_int64(statement, 1, userID) == SQLITE_OK else {
@@ -1522,7 +1522,7 @@ extension DatabaseManager {
             LIMIT ?;
             """
 
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         guard sqlite3_bind_int(statement, 1, Int32(limit)) == SQLITE_OK else {
@@ -1552,7 +1552,7 @@ extension DatabaseManager {
     }
 
     private func fetchCount(sql: String) throws -> Int {
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         guard sqlite3_step(statement) == SQLITE_ROW else {
@@ -1573,7 +1573,7 @@ extension DatabaseManager {
             VALUES (?, ?);
             """
 
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         try bindText("calendar-backfill-user", to: statement, index: 1)
@@ -1613,7 +1613,7 @@ extension DatabaseManager {
             """
 
         let createdAt = timestamp(for: Date(timeIntervalSince1970: 0))
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         try bindText(backfillPlaceholderWord, to: statement, index: 1)
@@ -1635,7 +1635,7 @@ extension DatabaseManager {
     }
 
     private func fetchOptionalInt64(sql: String) throws -> Int64? {
-        var statement = try prepareStatement(sql)
+        let statement = try prepareStatement(sql)
         defer { sqlite3_finalize(statement) }
 
         let stepResult = sqlite3_step(statement)

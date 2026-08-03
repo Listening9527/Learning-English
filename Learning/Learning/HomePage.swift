@@ -2,18 +2,15 @@ import SwiftUI
 
 struct HomePage: View {
     enum QuickActionDestination {
-        case practiceReport
         case grammarHub
     }
 
-    static let reportQuickActionDestination: QuickActionDestination = .practiceReport
     static let grammarEntryDestination: QuickActionDestination = .grammarHub
 
     @ObservedObject var dashboardStore: DashboardStore
     let scorer: PronunciationScorer
     @StateObject private var grammarProgressStore = GrammarProgressStore()
     @StateObject private var grammarReviewStore = GrammarReviewStore()
-    @State private var showResetScoresConfirm = false
     @State private var selectedAccent: AccentOption = .american
 
     var body: some View {
@@ -65,15 +62,6 @@ struct HomePage: View {
             .task {
                 await dashboardStore.reload()
             }
-            .alert("重置错题记录", isPresented: $showResetScoresConfirm) {
-                Button("取消", role: .cancel) {
-                }
-                Button("确认重置", role: .destructive) {
-                    scorer.resetAllLatestScores()
-                }
-            } message: {
-                Text("将清空全部单词的得分与错题记录。")
-            }
         }
     }
 
@@ -94,30 +82,6 @@ struct HomePage: View {
             }
             .buttonStyle(.plain)
 
-            Button {
-                showResetScoresConfirm = true
-            } label: {
-                quickActionCard(
-                    title: "重置错题记录",
-                    subtitle: "清空全部得分与错题状态",
-                    color: .gray,
-                    icon: "arrow.counterclockwise"
-                )
-            }
-            .buttonStyle(.plain)
-
-            NavigationLink {
-                reportQuickActionDestinationView()
-            } label: {
-                quickActionCard(
-                    title: "今日练习报告",
-                    subtitle: "查看得分统计与达标情况",
-                    color: .green,
-                    icon: "chart.bar"
-                )
-            }
-            .buttonStyle(.plain)
-
             NavigationLink {
                 grammarQuickActionDestinationView()
             } label: {
@@ -133,22 +97,6 @@ struct HomePage: View {
     }
 
     @ViewBuilder
-    private func reportQuickActionDestinationView() -> some View {
-        switch Self.reportQuickActionDestination {
-        case .practiceReport:
-            PracticeReportView(
-                latestScores: scorer.latestScores,
-                threshold: scorer.autoReplayThreshold,
-                averageScoreText: scorer.averageScoreText,
-                scoredWordCount: scorer.scoredWordCount,
-                lowScoreWordCount: scorer.lowScoreWordCount
-            )
-        case .grammarHub:
-            EmptyView()
-        }
-    }
-
-    @ViewBuilder
     private func grammarQuickActionDestinationView() -> some View {
         switch Self.grammarEntryDestination {
         case .grammarHub:
@@ -157,8 +105,6 @@ struct HomePage: View {
                 progressStore: grammarProgressStore,
                 reviewStore: grammarReviewStore
             )
-        case .practiceReport:
-            EmptyView()
         }
     }
 
