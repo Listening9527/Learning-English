@@ -1015,12 +1015,20 @@ extension DatabaseManager {
 
         let sql =
             """
-                        SELECT word
-                        FROM words
-                        WHERE COALESCE(pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
-                            AND word <> '\(legacyBackfillPlaceholderWord)'
-                        ORDER BY created_at DESC, id DESC
-                        LIMIT ? OFFSET ?;
+            SELECT word
+            FROM (
+                SELECT
+                    TRIM(word) AS word,
+                    MAX(created_at) AS latest_created_at,
+                    MAX(id) AS latest_id
+                FROM words
+                WHERE COALESCE(pos, '') <> '\(backfillPlaceholderPartOfSpeech)'
+                  AND word <> '\(legacyBackfillPlaceholderWord)'
+                  AND TRIM(word) <> ''
+                GROUP BY LOWER(TRIM(word))
+            ) unique_words
+            ORDER BY latest_created_at DESC, latest_id DESC
+            LIMIT ? OFFSET ?;
             """
 
         let statement = try prepareStatement(sql)
@@ -1049,7 +1057,7 @@ extension DatabaseManager {
             throw databaseError(message: "Failed to fetch study words")
         }
 
-        return Array(NSOrderedSet(array: words)) as? [String] ?? words
+        return words
     }
 
     func fetchWordSummaries(words: [String]) throws -> [RecentWordSummary] {

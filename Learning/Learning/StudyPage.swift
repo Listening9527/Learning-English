@@ -59,11 +59,11 @@ struct LegacyStudyContent: View {
     @State private var hasUnlockedPronunciation: Bool = false
     @State private var hasUnlockedSpelling: Bool = false
     @State private var errorMessage: String?
+    @State private var studyWordLimit: Int = UserPreferences.default.dailyGoal
     @State private var currentBatchStartOffset: Int = 0
     @State private var hasMarkedCurrentBatchCompleted: Bool = false
     @FocusState private var focusedInput: InputField?
 
-    private let defaultStudyWordLimit = 10
     private let defaultStudyListID: Int64 = 0
 
     init(
@@ -284,6 +284,7 @@ struct LegacyStudyContent: View {
                 clampCurrentIndex()
 
                 Task {
+                    await reloadStudyWordLimitFromPreferences()
                     await loadSupplementalSummaries()
                     await loadWordsFromDefaultPool()
                 }
@@ -439,16 +440,17 @@ struct LegacyStudyContent: View {
 
     private func loadWordsFromDefaultPool() async {
         do {
+            let effectiveStudyWordLimit = max(1, studyWordLimit)
             let nextOffset = studySessionStore.nextBatchOffset(for: defaultStudyListID)
             var words = try DatabaseManager.shared.fetchStudyWords(
-                limit: defaultStudyWordLimit,
+                limit: effectiveStudyWordLimit,
                 offset: nextOffset
             )
 
             if words.isEmpty, nextOffset > 0 {
                 studySessionStore.resetBatchProgress(for: defaultStudyListID)
                 words = try DatabaseManager.shared.fetchStudyWords(
-                    limit: defaultStudyWordLimit,
+                    limit: effectiveStudyWordLimit,
                     offset: 0
                 )
                 currentBatchStartOffset = 0
@@ -459,7 +461,7 @@ struct LegacyStudyContent: View {
             if words.isEmpty, nextOffset == 0, try importBundledWordsIfAvailable() {
                 studySessionStore.resetBatchProgress(for: defaultStudyListID)
                 words = try DatabaseManager.shared.fetchStudyWords(
-                    limit: defaultStudyWordLimit,
+                    limit: effectiveStudyWordLimit,
                     offset: 0
                 )
                 currentBatchStartOffset = 0
@@ -480,6 +482,15 @@ struct LegacyStudyContent: View {
             refreshDefinitionOptions()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func reloadStudyWordLimitFromPreferences() async {
+        do {
+            let preferences = try DatabaseManager.shared.fetchUserPreferences()
+            studyWordLimit = max(1, preferences.dailyGoal)
+        } catch {
+            studyWordLimit = max(1, UserPreferences.default.dailyGoal)
         }
     }
 

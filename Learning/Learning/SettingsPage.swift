@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct SettingsPage: View {
     @ObservedObject var preferencesStore: PreferencesStore
@@ -10,7 +9,6 @@ struct SettingsPage: View {
     @State private var notificationHour = 20
     @State private var notificationMinute = 0
     @State private var dailyGoal = 20
-    @State private var isShowingFileImporter = false
     @State private var replaceExistingWords = true
     @State private var importAsCustomWords = false
     @State private var importResultMessage: String?
@@ -37,8 +35,10 @@ struct SettingsPage: View {
                 Toggle("清空现有词库后导入", isOn: $replaceExistingWords)
                 Toggle("导入为自定义词", isOn: $importAsCustomWords)
 
-                Button("从文件导入 words.md") {
-                    isShowingFileImporter = true
+                Button("从 Bundle 导入 words.md") {
+                    Task {
+                        await importWordsFromBundle()
+                    }
                 }
 
                 if let importResultMessage, !importResultMessage.isEmpty {
@@ -74,15 +74,6 @@ struct SettingsPage: View {
         } message: {
             Text(errorMessage ?? "")
         }
-        .fileImporter(
-            isPresented: $isShowingFileImporter,
-            allowedContentTypes: [.plainText, .utf8PlainText, .text],
-            allowsMultipleSelection: false
-        ) { result in
-            Task {
-                await importWordsFromSelectedFile(result)
-            }
-        }
     }
 
     private var errorAlertBinding: Binding<Bool> {
@@ -104,22 +95,19 @@ struct SettingsPage: View {
         notificationMinute = preferences.notificationMinute
     }
 
-    private func importWordsFromSelectedFile(_ result: Result<[URL], Error>) async {
+    private func importWordsFromBundle() async {
         do {
-            let urls = try result.get()
-            guard let url = urls.first else {
+            let bundle = Bundle.main
+            let bundledWordsURL =
+                bundle.url(forResource: "words", withExtension: "md")
+                ?? bundle.url(forResource: "words", withExtension: "md", subdirectory: "Learning")
+            guard let bundledWordsURL else {
+                errorMessage = "未在应用包中找到 words.md，请先将文件加入 Target 的 Copy Bundle Resources。"
                 return
             }
 
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer {
-                if accessing {
-                    url.stopAccessingSecurityScopedResource()
-                }
-            }
-
             let summary = try DatabaseManager.shared.importWordsFromMarkdown(
-                fileURL: url,
+                fileURL: bundledWordsURL,
                 replaceExisting: replaceExistingWords,
                 isCustom: importAsCustomWords
             )
