@@ -116,6 +116,26 @@ struct LegacyStudyContent: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
+                            if let syllableDivision = currentWordSummary?.syllableDivision, !syllableDivision.isEmpty {
+                                Text("音节：\(syllableDivision)")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let wordRoot = currentWordSummary?.wordRoot, !wordRoot.isEmpty {
+                                Text("词根：\(wordRoot)")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let frequency = currentWordSummary?.frequency {
+                                Text(String(format: "出现频率：%.3f", frequency))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let part = currentWordSummary?.partOfSpeech, !part.isEmpty {
+                                Text("词性：\(part)")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     } else {
                         Text("暂无可学习单词。你可以先去搜索页添加单词。")
@@ -178,7 +198,6 @@ struct LegacyStudyContent: View {
                         recordingScoreButton
 
                         Toggle("慢速模式（更适合跟读）", isOn: $useSlowMode)
-                        Toggle("语音降噪增强（系统语音处理）", isOn: $scorer.enableVoiceProcessing)
                         Toggle("低分自动触发教学连播", isOn: $scorer.autoReplayLowScore)
 
                         Button("教学连播（标准 + 慢速）") {

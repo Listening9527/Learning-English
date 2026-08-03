@@ -23,6 +23,8 @@ struct ProfilePage: View {
                             }
                         }
                         .buttonStyle(.bordered)
+
+                        Toggle("语音降噪增强（系统语音处理）", isOn: $scorer.enableVoiceProcessing)
                     }
                     .padding(.vertical, 4)
                 }
