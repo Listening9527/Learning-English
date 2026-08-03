@@ -44,7 +44,7 @@ struct LegacyStudyContent: View {
     @StateObject private var studySessionStore = StudySessionStore()
     @State private var useSlowMode: Bool = false
     @State private var selectedAccent: AccentOption = .american
-    @State private var practiceWords: [String] = ["hello", "apple", "banana", "orange", "water"]
+    @State private var practiceWords: [String] = []
     @State private var currentWordIndex: Int = 0
     @State private var useWrongWordsOnly: Bool = false
     @State private var showPracticeReport: Bool = false
@@ -117,6 +117,10 @@ struct LegacyStudyContent: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                    } else {
+                        Text("暂无可学习单词。你可以先去搜索页添加单词。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
 
                     ViewThatFits(in: .horizontal) {
@@ -141,7 +145,7 @@ struct LegacyStudyContent: View {
                             ForEach(definitionOptions, id: \.self) { option in
                                 Button {
                                     selectedDefinition = option
-                                    definitionSelectionIsCorrect = option == currentWordSummary?.definition
+                                    definitionSelectionIsCorrect = option == preferredMeaning(for: currentWordSummary)
                                     hasUnlockedPronunciation = definitionSelectionIsCorrect == true
                                     if definitionSelectionIsCorrect != true {
                                         hasUnlockedSpelling = false
@@ -259,10 +263,11 @@ struct LegacyStudyContent: View {
                 scorer.loadPersistedScores()
                 useWrongWordsOnly = startInWrongWordsMode
                 clampCurrentIndex()
-            }
-            .task {
-                await loadSupplementalSummaries()
-                await loadWordsFromDefaultPool()
+
+                Task {
+                    await loadSupplementalSummaries()
+                    await loadWordsFromDefaultPool()
+                }
             }
             .onChange(of: selectedAccent) { newAccent in
                 scorer.setAccent(newAccent)
@@ -432,6 +437,15 @@ struct LegacyStudyContent: View {
                 currentBatchStartOffset = nextOffset
             }
 
+            if words.isEmpty, nextOffset == 0, try importBundledWordsIfAvailable() {
+                studySessionStore.resetBatchProgress(for: defaultStudyListID)
+                words = try DatabaseManager.shared.fetchStudyWords(
+                    limit: defaultStudyWordLimit,
+                    offset: 0
+                )
+                currentBatchStartOffset = 0
+            }
+
             guard !words.isEmpty else {
                 errorMessage = "词库暂无可学习单词，请先在搜索页添加单词。"
                 return
@@ -448,6 +462,25 @@ struct LegacyStudyContent: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func importBundledWordsIfAvailable() throws -> Bool {
+        let bundle = Bundle.main
+        let bundledWordsURL =
+            bundle.url(forResource: "words", withExtension: "md")
+            ?? bundle.url(forResource: "words", withExtension: "md", subdirectory: "Learning")
+
+        guard let bundledWordsURL else {
+            return false
+        }
+
+        let summary = try DatabaseManager.shared.importWordsFromMarkdown(
+            fileURL: bundledWordsURL,
+            replaceExisting: false,
+            isCustom: false
+        )
+
+        return summary.imported > 0 || summary.updated > 0
     }
 
     private func refreshWordSummaries(for words: [String], replaceAll: Bool) async {
@@ -487,7 +520,13 @@ struct LegacyStudyContent: View {
     }
 
     private func refreshDefinitionOptions() {
-        guard let summary = currentWordSummary, !summary.definition.isEmpty else {
+        guard let summary = currentWordSummary else {
+            definitionOptions = []
+            return
+        }
+
+        let correctMeaning = preferredMeaning(for: summary)
+        guard !correctMeaning.isEmpty else {
             definitionOptions = []
             return
         }
@@ -496,13 +535,13 @@ struct LegacyStudyContent: View {
             Set(
                 (Array(wordDetailsByWord.values) + supplementalSummaries)
                     .filter { normalizeWord($0.word) != normalizeWord(summary.word) }
-                    .map(\.definition)
-                    .filter { !$0.isEmpty && $0 != summary.definition }
+                    .map { preferredMeaning(for: $0) }
+                    .filter { !$0.isEmpty && $0 != correctMeaning }
             )
         )
 
         var options = Array(distractors.shuffled().prefix(3))
-        options.append(summary.definition)
+        options.append(correctMeaning)
 
         let fallbackOptions = [
             "一种动作或状态的描述",
@@ -517,6 +556,15 @@ struct LegacyStudyContent: View {
         }
 
         definitionOptions = Array(options.prefix(4)).shuffled()
+    }
+
+    private func preferredMeaning(for summary: RecentWordSummary?) -> String {
+        guard let summary else { return "" }
+        let translated = summary.translation?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !translated.isEmpty {
+            return translated
+        }
+        return summary.definition.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func resetExerciseStateForCurrentWord() {

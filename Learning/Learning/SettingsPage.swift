@@ -11,7 +11,7 @@ struct SettingsPage: View {
     @State private var notificationMinute = 0
     @State private var dailyGoal = 20
     @State private var isShowingFileImporter = false
-    @State private var replaceExistingWords = false
+    @State private var replaceExistingWords = true
     @State private var importAsCustomWords = false
     @State private var importResultMessage: String?
     @State private var errorMessage: String?
@@ -34,7 +34,7 @@ struct SettingsPage: View {
             }
 
             Section("词库导入") {
-                Toggle("覆盖已存在词条", isOn: $replaceExistingWords)
+                Toggle("清空现有词库后导入", isOn: $replaceExistingWords)
                 Toggle("导入为自定义词", isOn: $importAsCustomWords)
 
                 Button("从文件导入 words.md") {
@@ -124,6 +124,7 @@ struct SettingsPage: View {
                 isCustom: importAsCustomWords
             )
 
+            StudySessionStore.resetAllBatchProgress()
             importResultMessage = "解析 \(summary.parsed) 条，新增 \(summary.imported) 条，更新 \(summary.updated) 条，跳过 \(summary.skipped) 条。"
             await dashboardStore.refresh()
         } catch {

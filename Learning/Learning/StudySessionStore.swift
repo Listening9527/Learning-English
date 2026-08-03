@@ -46,6 +46,10 @@ final class StudySessionStore: ObservableObject {
         persistStudyListNextBatchOffsets(offsets)
     }
 
+    static func resetAllBatchProgress(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: "learning.studyListNextBatchOffsets")
+    }
+
     private func storageKey(for studyListID: Int64) -> String {
         String(studyListID)
     }

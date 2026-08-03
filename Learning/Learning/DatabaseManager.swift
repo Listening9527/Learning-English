@@ -513,17 +513,21 @@ extension DatabaseManager {
 
         try executeThrowing("BEGIN TRANSACTION;")
         do {
-            for row in rows {
-                if let existingID = try fetchExistingWordID(for: row) {
-                    if replaceExisting {
+            if replaceExisting {
+                try executeThrowing("DELETE FROM words;")
+                for row in rows {
+                    try insertWordRow(row, isCustom: isCustom)
+                    imported += 1
+                }
+            } else {
+                for row in rows {
+                    if let existingID = try fetchExistingWordID(for: row) {
                         try updateWordRow(id: existingID, row: row, isCustom: isCustom)
                         updated += 1
                     } else {
-                        skipped += 1
+                        try insertWordRow(row, isCustom: isCustom)
+                        imported += 1
                     }
-                } else {
-                    try insertWordRow(row, isCustom: isCustom)
-                    imported += 1
                 }
             }
             try executeThrowing("COMMIT;")
@@ -1004,13 +1008,7 @@ extension DatabaseManager {
         let cappedLimit = max(1, limit)
         let cappedOffset = max(0, offset)
 
-        var words = try fetchStudyWordsFromWordsTable(limit: cappedLimit, offset: cappedOffset)
-        if words.isEmpty, cappedOffset == 0 {
-            try insertThirtySampleWords()
-            words = try fetchStudyWordsFromWordsTable(limit: cappedLimit, offset: cappedOffset)
-        }
-
-        return words
+        return try fetchStudyWordsFromWordsTable(limit: cappedLimit, offset: cappedOffset)
     }
 
     private func fetchStudyWordsFromWordsTable(limit: Int, offset: Int) throws -> [String] {
